@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap');
+
+@import "tailwindcss";
+
+:root {
+    font-family: 'Kanit', system-ui, sans-serif;
+    font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+@media print {
+    body * {
+        visibility: hidden;
+    }
+
+    #printable-receipt,
+    #printable-receipt * {
+        visibility: visible;
+    }
+
+    #printable-receipt {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+        border: none;
+        max-width: none !important;
+    }
+
+    @page {
+        size: A4;
+        margin: 0;
+    }
+}
