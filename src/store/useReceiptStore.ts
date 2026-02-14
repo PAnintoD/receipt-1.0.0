@@ -6,6 +6,7 @@ import {
     deleteReceiptFromFirestore,
     subscribeToReceipts
 } from '../services/firestore';
+import { calcTotals } from '../utils/calculations';
 
 interface ReceiptState {
     currentItems: ReceiptItem[];
@@ -155,11 +156,11 @@ export const useReceiptStore = create<ReceiptState>()(
                         return '';
                     }
 
-                    const subtotal = safeCurrentItems.reduce((sum, item) => sum + item.price * item.qty, 0);
-                    const discountAmount = discount || 0;
-                    const afterDiscount = Math.max(0, subtotal - discountAmount);
-                    const taxAmount = (afterDiscount * taxRate) / 100;
-                    const total = afterDiscount + taxAmount;
+                    const { subtotal, discountAmount, taxAmount, total } = calcTotals(
+                        safeCurrentItems,
+                        discount,
+                        taxRate
+                    );
 
                     const newReceipt: Receipt = {
                         id: get().getNextId(),

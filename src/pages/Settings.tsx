@@ -1,23 +1,46 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useConfigStore } from '../store/useConfigStore';
-import { Upload, X, Store, MapPin, Hash, Type } from 'lucide-react';
+import { Upload, X, Store, MapPin, Hash, Type, Loader2 } from 'lucide-react';
 
 const Settings = () => {
     const config = useConfigStore();
+    const [uploading, setUploading] = useState(false);
 
-    const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file) {
-            if (file.size > 2 * 1024 * 1024) {
-                alert('ไฟล์มีขนาดใหญ่เกินไป กรุณาอัปโหลดรูปภาพขนาดไม่เกิน 2MB');
-                return;
-            }
+        if (!file) return;
 
+        if (file.size > 500 * 1024) {
+            alert('ไฟล์มีขนาดใหญ่เกินไป กรุณาอัปโหลดรูปภาพขนาดไม่เกิน 500KB');
+            return;
+        }
+
+        try {
+            setUploading(true);
+            // Convert to base64 data URL — no Firebase Storage needed
             const reader = new FileReader();
-            reader.onloadend = () => {
-                config.setLogo(reader.result as string);
-            };
-            reader.readAsDataURL(file);
+            const base64 = await new Promise<string>((resolve, reject) => {
+                reader.onload = () => resolve(reader.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+            await config.setLogo(base64);
+        } catch (error) {
+            console.error('Upload failed:', error);
+            alert('อัปโหลดโลโก้ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleLogoDelete = async () => {
+        try {
+            setUploading(true);
+            await config.setLogo('');
+        } catch (error) {
+            console.error('Delete failed:', error);
+        } finally {
+            setUploading(false);
         }
     };
 
@@ -39,11 +62,12 @@ const Settings = () => {
                                 <>
                                     <img src={config.logo} alt="Logo Preview" className="h-32 w-32 object-cover border-2 border-gray-100 rounded-2xl shadow-sm bg-gray-50" />
                                     <button
-                                        onClick={() => config.setLogo('')}
+                                        onClick={handleLogoDelete}
+                                        disabled={uploading}
                                         className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-1.5 hover:bg-red-200 transition-colors shadow-sm opacity-0 group-hover:opacity-100"
                                         title="ลบโลโก้"
                                     >
-                                        <X size={16} />
+                                        {uploading ? <Loader2 size={16} className="animate-spin" /> : <X size={16} />}
                                     </button>
                                 </>
                             ) : (
@@ -57,11 +81,11 @@ const Settings = () => {
 
                     <div className="flex-1">
                         <h3 className="font-bold text-gray-800 mb-1">อัปโหลดโลโก้ใหม่</h3>
-                        <p className="text-sm text-gray-500 mb-4">แนะนำให้ใช้รูปสี่เหลี่ยมจัตุรัส (.png, .jpg) ขนาดไม่เกิน 2MB พื้นหลังโปร่งใสจะสวยที่สุด</p>
-                        <label className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm font-medium text-sm">
-                            <Upload size={18} />
-                            <span>เลือกรูปภาพ</span>
-                            <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                        <p className="text-sm text-gray-500 mb-4">แนะนำให้ใช้รูปสี่เหลี่ยมจัตุรัส (.png, .jpg) ขนาดไม่เกิน 500KB พื้นหลังโปร่งใสจะสวยที่สุด</p>
+                        <label className={`inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm font-medium text-sm ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                            {uploading ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
+                            <span>{uploading ? 'กำลังอัปโหลด...' : 'เลือกรูปภาพ'}</span>
+                            <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" disabled={uploading} />
                         </label>
                     </div>
                 </div>

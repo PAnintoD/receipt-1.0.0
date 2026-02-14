@@ -8,25 +8,28 @@
 }
 
 @media print {
-    body * {
-        visibility: hidden;
+
+    /* Hide the app — #printable-receipt is OUTSIDE #root via portal */
+    #root {
+        display: none !important;
     }
 
-    #printable-receipt,
-    #printable-receipt * {
-        visibility: visible;
-    }
-
+    /* Print container is in normal document flow */
     #printable-receipt {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        margin: 0;
-        padding: 0;
-        box-shadow: none;
-        border: none;
+        display: block !important;
+        position: static !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
         max-width: none !important;
+        overflow: visible !important;
+    }
+
+    /* Each page wrapper should not be split */
+    #printable-receipt>div {
+        page-break-inside: avoid;
     }
 
     @page {

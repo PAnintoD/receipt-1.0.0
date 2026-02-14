@@ -1,15 +1,25 @@
 import React from 'react';
 import { useReceiptStore } from '../store/useReceiptStore';
 import { InvoicePreviewA4 } from '../components/receipt/InvoicePreviewA4';
+import { PrintPortal } from '../components/PrintPortal';
 import { User, MapPin, Printer, Save, Trash2, Plus, RefreshCw, ShoppingCart, Tag, Box, ChevronDown } from 'lucide-react';
 import { formatCurrency } from '../utils/format';
 import { clsx } from 'clsx';
 
+const ITEMS_PER_PAGE = 10;
+
+/** Split an array into chunks of a given size */
+function chunkArray<T>(arr: T[], size: number): T[][] {
+    const chunks: T[][] = [];
+    for (let i = 0; i < arr.length; i += size) {
+        chunks.push(arr.slice(i, i + size));
+    }
+    return chunks.length > 0 ? chunks : [[]];
+}
+
 const NewReceipt = () => {
     const { currentItems, addItem, removeItem, clearCurrentReceipt, saveReceipt, discount, taxRate, customerName, customerAddress, setCustomerName, setCustomerAddress, documentType, setDocumentType, isOriginal, setIsOriginal, watermarkText, setWatermarkText, getNextId } = useReceiptStore();
     const [newItem, setNewItem] = React.useState({ name: '', price: '', qty: 1, unit: 'ชิ้น' });
-
-    // ... (rest of methods)
 
     const handleAddItem = (e: React.FormEvent) => {
         e.preventDefault();
@@ -36,6 +46,10 @@ const NewReceipt = () => {
     const total = afterDiscount + taxAmount;
 
     const nextId = getNextId();
+
+    // Pagination: split items into pages of 10
+    const pages = React.useMemo(() => chunkArray(safeCurrentItems, ITEMS_PER_PAGE), [safeCurrentItems]);
+    const totalPages = pages.length;
 
     return (
         <>
@@ -144,8 +158,9 @@ const NewReceipt = () => {
                                 placeholder="1"
                                 className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all shadow-sm text-center"
                                 value={newItem.qty}
-                                min="1"
-                                onChange={(e) => setNewItem({ ...newItem, qty: parseInt(e.target.value) || 1 })}
+                                min="0.01"
+                                step="any"
+                                onChange={(e) => { const v = parseFloat(e.target.value); setNewItem({ ...newItem, qty: isNaN(v) ? 1 : v }); }}
                             />
                         </div>
                         <div className="col-span-4 md:col-span-2">
@@ -253,6 +268,9 @@ const NewReceipt = () => {
                             <div className="text-right">
                                 <div className="text-sm text-gray-500 mb-1">ยอดสุทธิ</div>
                                 <div className="text-4xl font-bold text-blue-600 font-mono tracking-tight">{formatCurrency(total)}</div>
+                                {totalPages > 1 && (
+                                    <div className="text-xs text-gray-400 mt-1">({totalPages} หน้า)</div>
+                                )}
                             </div>
                         </div>
 
@@ -284,53 +302,75 @@ const NewReceipt = () => {
                     </div>
                 </div>
 
-                {/* Preview Section */}
+                {/* Preview Section — shows all pages stacked */}
                 <div className="hidden lg:flex w-[380px] flex-col min-h-0 bg-gray-100 rounded-2xl border border-gray-200 overflow-hidden">
                     <div className="p-4 bg-gray-200 border-b border-gray-300/50 flex items-center justify-between">
                         <h2 className="font-bold text-gray-700 flex items-center gap-2">
                             <Printer size={16} /> ตัวอย่างใบเสร็จ
                         </h2>
-                        <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">A4 Invoice</span>
+                        <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">
+                            {totalPages > 1 ? `A4 · ${totalPages} หน้า` : 'A4 Invoice'}
+                        </span>
                     </div>
-                    <div className="flex-1 p-6 overflow-hidden flex items-start justify-center shadow-inner custom-scrollbar bg-gray-200/50 relative">
+                    <div className="flex-1 p-6 overflow-auto flex items-start justify-center shadow-inner custom-scrollbar bg-gray-200/50 relative">
                         <div className="transform scale-[0.45] origin-top">
-                            <div className="w-[210mm] min-h-[297mm] bg-white shadow-xl">
-                                <InvoicePreviewA4
-                                    items={safeCurrentItems}
-                                    total={total}
-                                    subtotal={subtotal}
-                                    discount={discountAmount}
-                                    tax={taxAmount}
-                                    taxRate={taxRate}
-                                    customerName={customerName}
-                                    customerAddress={customerAddress}
-                                    documentType={documentType}
-                                    isOriginal={isOriginal}
-                                    watermarkText={watermarkText}
-                                    id={nextId}
-                                />
+                            <div className="space-y-8">
+                                {pages.map((pageItems, pageIdx) => (
+                                    <div key={pageIdx} className="w-[210mm] h-[297mm] bg-white shadow-xl">
+                                        <InvoicePreviewA4
+                                            items={pageItems}
+                                            total={total}
+                                            subtotal={subtotal}
+                                            discount={discountAmount}
+                                            tax={taxAmount}
+                                            taxRate={taxRate}
+                                            customerName={customerName}
+                                            customerAddress={customerAddress}
+                                            documentType={documentType}
+                                            isOriginal={isOriginal}
+                                            watermarkText={watermarkText}
+                                            id={nextId}
+                                            pageNumber={pageIdx + 1}
+                                            totalPages={totalPages}
+                                            startIndex={pageIdx * ITEMS_PER_PAGE}
+                                            isLastPage={pageIdx === totalPages - 1}
+                                        />
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            {/* Hidden Print Component - Moved outside the main print:hidden container */}
-            <div id="printable-receipt" className="hidden print:block print:absolute print:left-0 print:top-0 print:w-full print:bg-white print:z-[9999]">
-                <InvoicePreviewA4
-                    items={safeCurrentItems}
-                    total={total}
-                    subtotal={subtotal}
-                    discount={discountAmount}
-                    tax={taxAmount}
-                    taxRate={taxRate}
-                    customerName={customerName}
-                    customerAddress={customerAddress}
-                    documentType={documentType}
-                    isOriginal={isOriginal}
-                    watermarkText={watermarkText}
-                    id={nextId}
-                />
-            </div>
+
+            {/* Print Component — rendered via portal outside #root for proper multi-page printing */}
+            <PrintPortal>
+                {pages.map((pageItems, pageIdx) => (
+                    <div
+                        key={pageIdx}
+                        style={pageIdx < totalPages - 1 ? { breakAfter: 'page' } : undefined}
+                    >
+                        <InvoicePreviewA4
+                            items={pageItems}
+                            total={total}
+                            subtotal={subtotal}
+                            discount={discountAmount}
+                            tax={taxAmount}
+                            taxRate={taxRate}
+                            customerName={customerName}
+                            customerAddress={customerAddress}
+                            documentType={documentType}
+                            isOriginal={isOriginal}
+                            watermarkText={watermarkText}
+                            id={nextId}
+                            pageNumber={pageIdx + 1}
+                            totalPages={totalPages}
+                            startIndex={pageIdx * ITEMS_PER_PAGE}
+                            isLastPage={pageIdx === totalPages - 1}
+                        />
+                    </div>
+                ))}
+            </PrintPortal>
         </>
     );
 };

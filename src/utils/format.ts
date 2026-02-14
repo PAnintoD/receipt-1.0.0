@@ -6,7 +6,7 @@ export const formatCurrency = (amount: number) => {
             currency: 'THB',
             minimumFractionDigits: 2,
         }).format(amount);
-    } catch (e) {
+    } catch {
         return '฿0.00';
     }
 };
@@ -25,7 +25,7 @@ export const formatDate = (dateString: string) => {
         const minute = date.getMinutes().toString().padStart(2, '0');
 
         return `${day}/${month}/${year} ${hour}:${minute}`;
-    } catch (e) {
+    } catch {
         return dateString;
     }
 };

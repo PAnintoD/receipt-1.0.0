@@ -80,7 +80,11 @@ export const subscribeToReceipts = (callback: (receipts: Receipt[]) => void) => 
 
 export const saveConfigToFirestore = async (config: AppConfig): Promise<void> => {
     try {
-        await setDoc(doc(db, CONFIG_COLLECTION, CONFIG_DOC_ID), config);
+        // Exclude logo from Firestore — base64 strings are too large for Firestore docs.
+        // Logo is stored locally via Zustand persist (localStorage).
+        const { logo, ...configWithoutLogo } = config as AppConfig & { logo?: string };
+        void logo; // suppress unused variable warning
+        await setDoc(doc(db, CONFIG_COLLECTION, CONFIG_DOC_ID), configWithoutLogo);
     } catch (error) {
         console.error('Error saving config to Firestore:', error);
         throw error;

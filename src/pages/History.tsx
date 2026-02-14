@@ -1,30 +1,92 @@
 import React from 'react';
 import { useReceiptStore } from '../store/useReceiptStore';
 import { formatDate, formatCurrency } from '../utils/format';
-import { Printer, Trash2, Eye, Search, FileText, X } from 'lucide-react';
+import { Printer, Trash2, Eye, Search, FileText, X, Filter } from 'lucide-react';
 import { InvoicePreviewA4 } from '../components/receipt/InvoicePreviewA4';
+import { PrintPortal } from '../components/PrintPortal';
 import type { Receipt } from '../types';
+
+const ITEMS_PER_PAGE = 10;
+
+/** Split an array into chunks of a given size */
+function chunkArray<T>(arr: T[], size: number): T[][] {
+    const chunks: T[][] = [];
+    for (let i = 0; i < arr.length; i += size) {
+        chunks.push(arr.slice(i, i + size));
+    }
+    return chunks.length > 0 ? chunks : [[]];
+}
+
+type DocTypeFilter = 'all' | 'receipt' | 'tax_invoice' | 'delivery_note';
+
+const DOC_TYPE_LABELS: Record<DocTypeFilter, string> = {
+    all: 'ทั้งหมด',
+    receipt: 'ใบเสร็จรับเงิน',
+    tax_invoice: 'ใบกำกับภาษี',
+    delivery_note: 'ใบส่งของ',
+};
+
+const DOC_TYPE_BADGE_LABEL: Record<string, string> = {
+    receipt: 'ใบเสร็จ',
+    tax_invoice: 'ใบกำกับภาษี',
+    delivery_note: 'ใบส่งของ',
+};
+
+const DOC_TYPE_COLORS: Record<string, string> = {
+    receipt: 'bg-green-100 text-green-700',
+    tax_invoice: 'bg-blue-100 text-blue-700',
+    delivery_note: 'bg-orange-100 text-orange-700',
+};
 
 const History = () => {
     const { history, deleteReceipt } = useReceiptStore();
     const [selectedReceipt, setSelectedReceipt] = React.useState<Receipt | null>(null);
     const [searchTerm, setSearchTerm] = React.useState('');
+    const [docTypeFilter, setDocTypeFilter] = React.useState<DocTypeFilter>('all');
 
     const [printReceipt, setPrintReceipt] = React.useState<Receipt | null>(null);
 
     const handlePrint = (receipt: Receipt) => {
-        setPrintReceipt(null); // Force re-render if same receipt
-        setTimeout(() => {
-            setPrintReceipt(receipt);
-            setTimeout(() => window.print(), 500);
-        }, 50);
+        setPrintReceipt(receipt);
+        // Wait for React to render the portal content, then print
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                window.print();
+            });
+        });
     };
 
     const safeHistory = Array.isArray(history) ? history : [];
-    const filteredHistory = safeHistory.filter(h =>
-        (h.id?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-        (h.items || []).some(i => (i.name || '').toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+
+    // Count by type (for badge numbers)
+    const typeCounts = React.useMemo(() => {
+        const counts: Record<string, number> = { all: safeHistory.length, receipt: 0, tax_invoice: 0, delivery_note: 0 };
+        safeHistory.forEach(h => {
+            const t = h.documentType || 'receipt';
+            if (counts[t] !== undefined) counts[t]++;
+        });
+        return counts;
+    }, [safeHistory]);
+
+    // Apply type filter first, then search
+    const filteredHistory = safeHistory
+        .filter(h => docTypeFilter === 'all' || (h.documentType || 'receipt') === docTypeFilter)
+        .filter(h =>
+            (h.id?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+            (h.items || []).some(i => (i.name || '').toLowerCase().includes(searchTerm.toLowerCase()))
+        );
+
+    // Pagination for selected receipt (modal preview)
+    const selectedPages = React.useMemo(() => {
+        if (!selectedReceipt) return [[]];
+        return chunkArray(selectedReceipt.items || [], ITEMS_PER_PAGE);
+    }, [selectedReceipt]);
+
+    // Pagination for print receipt
+    const printPages = React.useMemo(() => {
+        if (!printReceipt) return [[]];
+        return chunkArray(printReceipt.items || [], ITEMS_PER_PAGE);
+    }, [printReceipt]);
 
     return (
         <div className="animate-fade-in-up h-full flex flex-col">
@@ -47,6 +109,29 @@ const History = () => {
                 </div>
             </div>
 
+            {/* Document type filter tabs */}
+            <div className="flex items-center gap-2 mb-4 shrink-0 print:hidden overflow-x-auto pb-1">
+                <Filter size={16} className="text-gray-400 shrink-0" />
+                {(Object.keys(DOC_TYPE_LABELS) as DocTypeFilter[]).map(type => (
+                    <button
+                        key={type}
+                        onClick={() => setDocTypeFilter(type)}
+                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${docTypeFilter === type
+                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-200'
+                            : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                            }`}
+                    >
+                        {DOC_TYPE_LABELS[type]}
+                        <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs ${docTypeFilter === type
+                            ? 'bg-white/20 text-white'
+                            : 'bg-gray-100 text-gray-500'
+                            }`}>
+                            {typeCounts[type]}
+                        </span>
+                    </button>
+                ))}
+            </div>
+
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 flex-1 flex flex-col min-h-0 overflow-hidden print:hidden">
                 {/* Desktop View */}
                 <div className="hidden md:block overflow-auto flex-1">
@@ -55,6 +140,7 @@ const History = () => {
                             <tr>
                                 <th className="px-6 py-4 text-left font-bold text-gray-600">วันที่</th>
                                 <th className="px-6 py-4 text-left font-bold text-gray-600">เลขบิล</th>
+                                <th className="px-6 py-4 text-left font-bold text-gray-600">ประเภท</th>
                                 <th className="px-6 py-4 text-left font-bold text-gray-600">รายการสินค้า (ตัวอย่าง)</th>
                                 <th className="px-6 py-4 text-right font-bold text-gray-600">ยอดรวม</th>
                                 <th className="px-6 py-4 text-center font-bold text-gray-600">จัดการ</th>
@@ -71,6 +157,11 @@ const History = () => {
                                     </td>
                                     <td className="px-6 py-4 font-mono text-xs text-gray-500">
                                         <span className="bg-gray-100 px-2 py-1 rounded text-gray-600 font-medium">#{receipt.id.toUpperCase()}</span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${DOC_TYPE_COLORS[receipt.documentType || 'receipt'] || 'bg-gray-100 text-gray-600'}`}>
+                                            {DOC_TYPE_BADGE_LABEL[receipt.documentType || 'receipt'] || 'ใบเสร็จ'}
+                                        </span>
                                     </td>
                                     <td className="px-6 py-4 text-gray-600 max-w-xs truncate">
                                         {receipt.items && receipt.items.length > 0 ? (
@@ -98,7 +189,7 @@ const History = () => {
                             ))}
                             {filteredHistory.length === 0 && (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-20 text-center text-gray-400">
+                                    <td colSpan={6} className="px-6 py-20 text-center text-gray-400">
                                         <div className="flex flex-col items-center justify-center">
                                             <div className="h-16 w-16 bg-gray-50 rounded-full flex items-center justify-center mb-4 text-gray-300">
                                                 <FileText size={32} />
@@ -124,7 +215,12 @@ const History = () => {
                                             <span className="font-bold text-gray-900 text-lg">{formatCurrency(receipt.total)}</span>
                                             <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded font-mono">#{receipt.id}</span>
                                         </div>
-                                        <p className="text-xs text-gray-400 mt-1">{formatDate(receipt.date)}</p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <p className="text-xs text-gray-400">{formatDate(receipt.date)}</p>
+                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${DOC_TYPE_COLORS[receipt.documentType || 'receipt'] || 'bg-gray-100 text-gray-600'}`}>
+                                                {DOC_TYPE_BADGE_LABEL[receipt.documentType || 'receipt'] || 'ใบเสร็จ'}
+                                            </span>
+                                        </div>
                                     </div>
 
                                 </div>
@@ -192,7 +288,12 @@ const History = () => {
                     >
                         {/* Modal Header */}
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold text-gray-800">รายละเอียดใบเสร็จ</h3>
+                            <h3 className="text-lg font-bold text-gray-800">
+                                รายละเอียดใบเสร็จ
+                                {selectedPages.length > 1 && (
+                                    <span className="ml-2 text-sm font-normal text-gray-400">({selectedPages.length} หน้า)</span>
+                                )}
+                            </h3>
                             <button
                                 onClick={() => setSelectedReceipt(null)}
                                 className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500"
@@ -201,24 +302,32 @@ const History = () => {
                             </button>
                         </div>
 
-                        {/* Scrollable Content */}
+                        {/* Scrollable Content — all pages stacked */}
                         <div className="overflow-y-auto flex-1 flex justify-center bg-gray-100/50 rounded-xl p-6 custom-scrollbar">
-                            <div className="shadow-lg">
-                                <InvoicePreviewA4
-                                    items={selectedReceipt.items}
-                                    total={selectedReceipt.total}
-                                    subtotal={selectedReceipt.subtotal}
-                                    discount={selectedReceipt.discount}
-                                    tax={selectedReceipt.tax}
-                                    taxRate={selectedReceipt.taxRate}
-                                    date={selectedReceipt.date}
-                                    id={selectedReceipt.id}
-                                    customerName={selectedReceipt.customerName}
-                                    customerAddress={selectedReceipt.customerAddress}
-                                    documentType={selectedReceipt.documentType}
-                                    isOriginal={selectedReceipt.isOriginal}
-                                    watermarkText={selectedReceipt.watermarkText}
-                                />
+                            <div className="space-y-8">
+                                {selectedPages.map((pageItems, pageIdx) => (
+                                    <div key={pageIdx} className="shadow-lg">
+                                        <InvoicePreviewA4
+                                            items={pageItems}
+                                            total={selectedReceipt.total}
+                                            subtotal={selectedReceipt.subtotal}
+                                            discount={selectedReceipt.discount}
+                                            tax={selectedReceipt.tax}
+                                            taxRate={selectedReceipt.taxRate}
+                                            date={selectedReceipt.date}
+                                            id={selectedReceipt.id}
+                                            customerName={selectedReceipt.customerName}
+                                            customerAddress={selectedReceipt.customerAddress}
+                                            documentType={selectedReceipt.documentType}
+                                            isOriginal={selectedReceipt.isOriginal}
+                                            watermarkText={selectedReceipt.watermarkText}
+                                            pageNumber={pageIdx + 1}
+                                            totalPages={selectedPages.length}
+                                            startIndex={pageIdx * ITEMS_PER_PAGE}
+                                            isLastPage={pageIdx === selectedPages.length - 1}
+                                        />
+                                    </div>
+                                ))}
                             </div>
                         </div>
 
@@ -236,26 +345,35 @@ const History = () => {
                 </div>
             )}
 
-            {/* Hidden Print Container - Visible ONLY during print */}
-            <div id="printable-receipt" className="hidden print:block print:fixed print:inset-0 print:bg-white print:z-[9999]">
-                {printReceipt && (
-                    <InvoicePreviewA4
-                        items={printReceipt.items}
-                        total={printReceipt.total}
-                        subtotal={printReceipt.subtotal}
-                        discount={printReceipt.discount}
-                        tax={printReceipt.tax}
-                        taxRate={printReceipt.taxRate}
-                        date={printReceipt.date}
-                        id={printReceipt.id}
-                        customerName={printReceipt.customerName}
-                        customerAddress={printReceipt.customerAddress}
-                        documentType={printReceipt.documentType}
-                        isOriginal={printReceipt.isOriginal}
-                        watermarkText={printReceipt.watermarkText}
-                    />
-                )}
-            </div>
+            {/* Print Container — rendered via portal outside #root */}
+            <PrintPortal>
+                {printReceipt && printPages.map((pageItems, pageIdx) => (
+                    <div
+                        key={pageIdx}
+                        style={pageIdx < printPages.length - 1 ? { breakAfter: 'page' } : undefined}
+                    >
+                        <InvoicePreviewA4
+                            items={pageItems}
+                            total={printReceipt.total}
+                            subtotal={printReceipt.subtotal}
+                            discount={printReceipt.discount}
+                            tax={printReceipt.tax}
+                            taxRate={printReceipt.taxRate}
+                            date={printReceipt.date}
+                            id={printReceipt.id}
+                            customerName={printReceipt.customerName}
+                            customerAddress={printReceipt.customerAddress}
+                            documentType={printReceipt.documentType}
+                            isOriginal={printReceipt.isOriginal}
+                            watermarkText={printReceipt.watermarkText}
+                            pageNumber={pageIdx + 1}
+                            totalPages={printPages.length}
+                            startIndex={pageIdx * ITEMS_PER_PAGE}
+                            isLastPage={pageIdx === printPages.length - 1}
+                        />
+                    </div>
+                ))}
+            </PrintPortal>
         </div>
     );
 };
