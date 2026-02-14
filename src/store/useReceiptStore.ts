@@ -29,6 +29,9 @@ interface ReceiptState {
     updateItem: (id: string, updates: Partial<ReceiptItem>) => void;
     clearCurrentReceipt: () => void;
 
+    editingId: string | null;
+    loadReceipt: (receipt: Receipt) => void;
+
     history: Receipt[];
     setHistory: (history: Receipt[]) => void;
     saveReceipt: () => Promise<string>; // Returns new receipt ID
@@ -56,6 +59,22 @@ export const useReceiptStore = create<ReceiptState>()(
             setDocumentType: (type) => set({ documentType: type }),
             setIsOriginal: (isOriginal) => set({ isOriginal }),
             setWatermarkText: (text) => set({ watermarkText: text }),
+
+            editingId: null,
+
+            loadReceipt: (receipt) => {
+                set({
+                    currentItems: receipt.items || [],
+                    discount: receipt.discount || 0,
+                    taxRate: receipt.taxRate || 0,
+                    customerName: receipt.customerName || '',
+                    customerAddress: receipt.customerAddress || '',
+                    documentType: receipt.documentType || 'receipt',
+                    isOriginal: receipt.isOriginal ?? true,
+                    watermarkText: receipt.watermarkText || '',
+                    editingId: receipt.id,
+                });
+            },
 
             addItem: (item) => {
                 const newItem: ReceiptItem = {
@@ -87,6 +106,8 @@ export const useReceiptStore = create<ReceiptState>()(
                     discount: 0,
                     customerName: '',
                     customerAddress: '',
+                    editingId: null,
+                    watermarkText: '',
                 });
             },
 
@@ -145,6 +166,7 @@ export const useReceiptStore = create<ReceiptState>()(
                     isOriginal,
                     watermarkText,
                     history,
+                    editingId,
                 } = get();
 
                 try {
@@ -163,8 +185,8 @@ export const useReceiptStore = create<ReceiptState>()(
                     );
 
                     const newReceipt: Receipt = {
-                        id: get().getNextId(),
-                        date: new Date().toISOString(),
+                        id: editingId || get().getNextId(),
+                        date: new Date().toISOString(), // Always update date on save? Or keep original? Let's update to show "modified" time, or maybe we want to keep original date? Usually edit updates the record. Let's start with updating.
                         items: safeCurrentItems,
                         subtotal,
                         discount: discountAmount,
@@ -181,8 +203,15 @@ export const useReceiptStore = create<ReceiptState>()(
                     // Save to Firestore
                     await saveReceiptToFirestore(newReceipt);
 
-                    // Update local state (will also update localStorage via persist)
-                    set({ history: [newReceipt, ...safeHistory] });
+                    // Update local state
+                    if (editingId) {
+                        set({
+                            history: safeHistory.map(h => h.id === editingId ? newReceipt : h),
+                            editingId: null, // Clear editing state after save
+                        });
+                    } else {
+                        set({ history: [newReceipt, ...safeHistory] });
+                    }
 
                     return newReceipt.id;
                 } catch (error) {

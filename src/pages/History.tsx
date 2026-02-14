@@ -1,7 +1,8 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useReceiptStore } from '../store/useReceiptStore';
 import { formatDate, formatCurrency } from '../utils/format';
-import { Printer, Trash2, Eye, Search, FileText, X, Filter } from 'lucide-react';
+import { Printer, Trash2, Eye, Search, FileText, X, Filter, Pencil } from 'lucide-react';
 import { InvoicePreviewA4 } from '../components/receipt/InvoicePreviewA4';
 import { PrintPortal } from '../components/PrintPortal';
 import type { Receipt } from '../types';
@@ -39,7 +40,8 @@ const DOC_TYPE_COLORS: Record<string, string> = {
 };
 
 const History = () => {
-    const { history, deleteReceipt } = useReceiptStore();
+    const { history, deleteReceipt, loadReceipt } = useReceiptStore();
+    const navigate = useNavigate();
     const [selectedReceipt, setSelectedReceipt] = React.useState<Receipt | null>(null);
     const [searchTerm, setSearchTerm] = React.useState('');
     const [docTypeFilter, setDocTypeFilter] = React.useState<DocTypeFilter>('all');
@@ -54,6 +56,11 @@ const History = () => {
                 window.print();
             });
         });
+    };
+
+    const handleEdit = (receipt: Receipt) => {
+        loadReceipt(receipt);
+        navigate('/new');
     };
 
     const safeHistory = Array.isArray(history) ? history : [];
@@ -177,6 +184,9 @@ const History = () => {
                                             <button onClick={() => setSelectedReceipt(receipt)} className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-100" title="ดูรายละเอียด">
                                                 <Eye size={16} />
                                             </button>
+                                            <button onClick={() => handleEdit(receipt)} className="p-2 text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors border border-orange-100" title="แก้ไข">
+                                                <Pencil size={16} />
+                                            </button>
                                             <button onClick={() => handlePrint(receipt)} className="p-2 text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-100" title="พิมพ์ใบเสร็จ">
                                                 <Printer size={16} />
                                             </button>
@@ -248,6 +258,12 @@ const History = () => {
                                         className="flex-1 py-2 text-blue-600 bg-blue-50 rounded-lg text-sm font-medium hover:bg-blue-100 flex items-center justify-center gap-2"
                                     >
                                         <Eye size={16} /> ดู
+                                    </button>
+                                    <button
+                                        onClick={() => handleEdit(receipt)}
+                                        className="flex-1 py-2 text-orange-600 bg-orange-50 rounded-lg text-sm font-medium hover:bg-orange-100 flex items-center justify-center gap-2"
+                                    >
+                                        <Pencil size={16} /> แก้ไข
                                     </button>
                                     <button
                                         onClick={() => handlePrint(receipt)}

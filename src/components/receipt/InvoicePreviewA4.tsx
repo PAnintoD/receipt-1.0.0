@@ -71,7 +71,7 @@ export const InvoicePreviewA4 = React.forwardRef<HTMLDivElement, InvoiceA4Props>
     return (
         <div
             ref={ref}
-            className="bg-white w-full max-w-[210mm] h-[297mm] mx-auto p-8 relative text-gray-800 font-sans leading-relaxed shadow-sm print:shadow-none print:w-full print:max-w-none box-border flex flex-col"
+            className="bg-white w-full max-w-[210mm] h-[297mm] mx-auto p-4 relative text-gray-800 font-sans leading-relaxed shadow-sm print:shadow-none print:w-full print:max-w-none box-border flex flex-col"
         >
             {/* Watermark */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
@@ -81,7 +81,7 @@ export const InvoicePreviewA4 = React.forwardRef<HTMLDivElement, InvoiceA4Props>
             </div>
 
             {/* Header — shown on every page */}
-            <div className="flex justify-between items-start mb-6 shrink-0">
+            <div className="flex justify-between items-start mb-4 shrink-0">
                 <div className="flex gap-4">
                     {config.logo && (
                         <img src={config.logo} alt="Logo" className="h-16 w-16 object-contain" />
@@ -93,8 +93,8 @@ export const InvoicePreviewA4 = React.forwardRef<HTMLDivElement, InvoiceA4Props>
                     </div>
                 </div>
                 <div className="text-right z-10 relative">
-                    <h2 className="text-xl font-bold mb-3 text-gray-900">{getDocumentTitle()}</h2>
-                    <div className="bg-blue-50/50 rounded-lg p-2.5 border border-blue-100 min-w-[200px]">
+                    <h2 className="text-xl font-bold mb-2 text-gray-900">{getDocumentTitle()}</h2>
+                    <div className="bg-blue-50/50 rounded-lg p-2 border border-blue-100 min-w-[200px]">
                         <div className="flex justify-between text-sm mb-1">
                             <span className="font-bold text-blue-800">เลขที่:</span>
                             <span className="font-mono text-blue-600 font-bold">{id || 'INV-XXXX'}</span>
@@ -103,9 +103,9 @@ export const InvoicePreviewA4 = React.forwardRef<HTMLDivElement, InvoiceA4Props>
                             <span className="text-gray-500">วันที่:</span>
                             <span>{formatDate(displayDate)}</span>
                         </div>
-                        <div className="flex justify-between text-sm mt-1 border-t border-blue-100 pt-1">
-                            <span className="text-xs font-semibold text-blue-400">{isOriginal ? 'ต้นฉบับ / Original' : 'สำเนา / Copy'}</span>
-                            <span className="text-xs font-semibold text-gray-400">หน้า {pageNumber}/{totalPages}</span>
+                        <div className="flex justify-between text-xs mt-1 border-t border-blue-100 pt-1">
+                            <span className="font-semibold text-blue-400">{isOriginal ? 'ต้นฉบับ / Original' : 'สำเนา / Copy'}</span>
+                            <span className="font-semibold text-gray-400">หน้า {pageNumber}/{totalPages}</span>
                         </div>
                     </div>
                 </div>
@@ -113,8 +113,8 @@ export const InvoicePreviewA4 = React.forwardRef<HTMLDivElement, InvoiceA4Props>
 
             {/* Customer Info — shown only on first page */}
             {pageNumber === 1 && (
-                <div className="mb-6 border border-blue-100 rounded-xl bg-blue-50/30 p-4 shrink-0">
-                    <h3 className="text-xs font-bold text-blue-500 uppercase tracking-wider mb-2">ข้อมูลลูกค้า / CUSTOMER INFO</h3>
+                <div className="mb-4 border border-blue-100 rounded-xl bg-blue-50/30 p-3 shrink-0">
+                    <h3 className="text-xs font-bold text-blue-500 uppercase tracking-wider mb-1">ข้อมูลลูกค้า / CUSTOMER INFO</h3>
                     {customerName ? (
                         <>
                             <p className="text-base font-bold text-gray-800 mb-0.5">{customerName}</p>
@@ -141,7 +141,7 @@ export const InvoicePreviewA4 = React.forwardRef<HTMLDivElement, InvoiceA4Props>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                         {items.map((item, index) => (
-                            <tr key={item.id} className="h-[55px]">
+                            <tr key={item.id} className="h-[38px]">
                                 <td className="px-3 text-center text-gray-400 font-mono align-middle">{startIndex + index + 1}</td>
                                 <td className="px-3 font-medium text-gray-700 align-middle">
                                     <span className="line-clamp-2">{item.name}</span>
@@ -154,7 +154,7 @@ export const InvoicePreviewA4 = React.forwardRef<HTMLDivElement, InvoiceA4Props>
                         ))}
                         {/* Empty rows to fill the page */}
                         {Array.from({ length: emptyRowCount }).map((_, i) => (
-                            <tr key={`empty-${i}`} className="h-[55px]">
+                            <tr key={`empty-${i}`} className="h-[38px]">
                                 <td className="px-3 text-center text-gray-200 align-middle">-</td>
                                 <td className="px-3"></td>
                                 <td className="px-3 bg-gray-50/30"></td>
@@ -205,7 +205,7 @@ export const InvoicePreviewA4 = React.forwardRef<HTMLDivElement, InvoiceA4Props>
                         </div>
 
                         {/* Signatures */}
-                        <div className="flex justify-between mt-8 pb-4 break-inside-avoid">
+                        <div className="flex justify-between mt-4 pb-0 break-inside-avoid">
                             <div className="text-center w-56 pt-6 border-t border-gray-300">
                                 <p className="text-sm font-bold text-gray-700">ผู้รับเงิน / Receiver</p>
                                 <p className="text-xs text-gray-400 mt-1">วันที่ ______________</p>

@@ -18,7 +18,7 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
 }
 
 const NewReceipt = () => {
-    const { currentItems, addItem, removeItem, clearCurrentReceipt, saveReceipt, discount, taxRate, customerName, customerAddress, setCustomerName, setCustomerAddress, documentType, setDocumentType, isOriginal, setIsOriginal, watermarkText, setWatermarkText, getNextId } = useReceiptStore();
+    const { currentItems, addItem, removeItem, clearCurrentReceipt, saveReceipt, discount, taxRate, customerName, customerAddress, setCustomerName, setCustomerAddress, documentType, setDocumentType, isOriginal, setIsOriginal, watermarkText, setWatermarkText, getNextId, editingId } = useReceiptStore();
     const [newItem, setNewItem] = React.useState({ name: '', price: '', qty: 1, unit: 'ชิ้น' });
 
     const handleAddItem = (e: React.FormEvent) => {
@@ -45,7 +45,7 @@ const NewReceipt = () => {
     const taxAmount = (afterDiscount * taxRate) / 100;
     const total = afterDiscount + taxAmount;
 
-    const nextId = getNextId();
+    const nextId = editingId || getNextId();
 
     // Pagination: split items into pages of 10
     const pages = React.useMemo(() => chunkArray(safeCurrentItems, ITEMS_PER_PAGE), [safeCurrentItems]);
@@ -61,8 +61,8 @@ const NewReceipt = () => {
                             <ShoppingCart size={20} />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-gray-800">สร้างใบเสร็จ</h2>
-                            <p className="text-xs text-gray-500">เพิ่มข้อมูลลูกค้าและรายการสินค้า</p>
+                            <h2 className="text-xl font-bold text-gray-800">{editingId ? 'แก้ไขใบเสร็จ' : 'สร้างใบเสร็จ'}</h2>
+                            <p className="text-xs text-gray-500">{editingId ? 'แก้ไขข้อมูลใบเสร็จที่บันทึกไว้' : 'เพิ่มข้อมูลลูกค้าและรายการสินค้า'}</p>
                         </div>
                     </div>
 
@@ -286,7 +286,7 @@ const NewReceipt = () => {
                                     alert('เกิดข้อผิดพลาดในการบันทึก กรุณาลองใหม่');
                                 }
                             }} className="px-4 py-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition-colors flex items-center justify-center gap-2 font-medium shadow-sm">
-                                <Save size={18} /> บันทึก
+                                <Save size={18} /> {editingId ? 'บันทึกการแก้ไข' : 'บันทึก'}
                             </button>
                             <button
                                 onClick={handlePrint}
