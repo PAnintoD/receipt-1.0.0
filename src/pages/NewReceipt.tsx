@@ -41,7 +41,7 @@ const NewReceipt = () => {
         <>
             <div className="flex flex-col lg:flex-row gap-8 h-[calc(100vh-140px)] animate-fade-in-up print:hidden">
                 {/* Input Section */}
-                <div className="flex-1 bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col min-h-0 relative overflow-hidden">
+                <div className="flex-1 bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col min-h-0 relative overflow-y-auto overflow-x-hidden">
                     <div className="flex items-center gap-3 mb-6">
                         <div className="h-10 w-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
                             <ShoppingCart size={20} />
@@ -180,7 +180,7 @@ const NewReceipt = () => {
                     </form>
 
                     {/* List */}
-                    <div className="flex-1 overflow-y-auto border border-gray-100 rounded-xl mb-4 custom-scrollbar">
+                    <div className="flex-1 overflow-y-auto border border-gray-100 rounded-xl mb-4 custom-scrollbar min-h-[200px]">
                         <table className="w-full text-sm">
                             <thead className="bg-gray-50 sticky top-0 z-10">
                                 <tr>
@@ -260,8 +260,8 @@ const NewReceipt = () => {
                             <button onClick={clearCurrentReceipt} className="px-4 py-3 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 hover:text-red-500 transition-colors flex items-center justify-center gap-2 font-medium" title="ล้างรายการทั้งหมด">
                                 <RefreshCw size={18} /> <span className="hidden sm:inline">ล้าง</span>
                             </button>
-                            <button onClick={() => {
-                                const id = saveReceipt();
+                            <button onClick={async () => {
+                                const id = await saveReceipt();
                                 if (id) {
                                     alert(`บันทึกสำเร็จ! เลขที่ใบเสร็จ: ${id}`);
                                 } else {

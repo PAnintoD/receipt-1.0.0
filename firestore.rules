@@ -1,0 +1,20 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Receipts collection
+    // Allow anyone to read and write receipts
+    // TODO: Add authentication when implementing user accounts
+    match /receipts/{receiptId} {
+      allow read, write: if true;
+    }
+    
+    // Config collection
+    // Allow anyone to read and write config
+    // TODO: Add authentication when implementing user accounts
+    match /config/{configId} {
+      allow read, write: if true;
+    }
+  }
+}

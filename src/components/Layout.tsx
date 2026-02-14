@@ -107,11 +107,42 @@ export const Layout = () => {
                 </div>
 
                 {/* Main Content */}
-                <main className="flex-1 overflow-auto p-4 md:p-8 scroll-smooth">
+                <main className="flex-1 overflow-auto p-4 md:p-8 scroll-smooth pb-24 md:pb-8">
                     <div className="max-w-5xl mx-auto animate-fade-in">
                         <Outlet />
                     </div>
                 </main>
+
+                {/* Bottom Navigation for Mobile */}
+                <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-6 py-2 z-30 flex justify-between items-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                    {navItems.map((item) => (
+                        <NavLink
+                            key={item.to}
+                            to={item.to}
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className={({ isActive }) =>
+                                clsx(
+                                    'flex flex-col items-center justify-center gap-1 p-2 rounded-xl transition-all duration-200 min-w-[64px]',
+                                    isActive
+                                        ? 'text-blue-600'
+                                        : 'text-gray-400 hover:text-gray-600'
+                                )
+                            }
+                        >
+                            {({ isActive }) => (
+                                <>
+                                    <div className={clsx(
+                                        "p-1.5 rounded-full transition-all duration-200",
+                                        isActive ? "bg-blue-50" : "bg-transparent"
+                                    )}>
+                                        <item.icon size={24} strokeWidth={isActive ? 2.5 : 2} />
+                                    </div>
+                                    <span className="text-[10px] font-medium">{item.label}</span>
+                                </>
+                            )}
+                        </NavLink>
+                    ))}
+                </div>
             </div>
         </div>
     );

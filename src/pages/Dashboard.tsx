@@ -107,7 +107,7 @@ const Dashboard = () => {
                         <TrendingUp size={20} className="text-blue-500" />
                         แนวโน้มรายได้ (7 วันล่าสุด)
                     </h3>
-                    <div className="h-[300px] w-full">
+                    <div className="h-[300px] w-full" style={{ minWidth: 0 }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                                 <defs>
@@ -165,7 +165,7 @@ const Dashboard = () => {
                                             <ShoppingBag size={18} />
                                         </div>
                                         <div>
-                                            <p className="text-sm font-bold text-gray-800 group-hover:text-blue-600 transition-colors">บิล #{receipt.id.slice(0, 6).toUpperCase()}</p>
+                                            <p className="text-sm font-bold text-gray-800 group-hover:text-blue-600 transition-colors">บิล {receipt.id}</p>
                                             <p className="text-xs text-gray-500">{new Date(receipt.date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</p>
                                         </div>
                                     </div>

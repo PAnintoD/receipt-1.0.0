@@ -48,7 +48,8 @@ const History = () => {
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 flex-1 flex flex-col min-h-0 overflow-hidden print:hidden">
-                <div className="overflow-auto flex-1">
+                {/* Desktop View */}
+                <div className="hidden md:block overflow-auto flex-1">
                     <table className="w-full text-sm">
                         <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10 backdrop-blur-sm bg-gray-50/90">
                             <tr>
@@ -69,7 +70,7 @@ const History = () => {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 font-mono text-xs text-gray-500">
-                                        <span className="bg-gray-100 px-2 py-1 rounded text-gray-600 font-medium">#{receipt.id.slice(0, 8).toUpperCase()}</span>
+                                        <span className="bg-gray-100 px-2 py-1 rounded text-gray-600 font-medium">#{receipt.id.toUpperCase()}</span>
                                     </td>
                                     <td className="px-6 py-4 text-gray-600 max-w-xs truncate">
                                         {receipt.items && receipt.items.length > 0 ? (
@@ -111,7 +112,73 @@ const History = () => {
                         </tbody>
                     </table>
                 </div>
-                <div className="bg-gray-50 border-t border-gray-100 p-3 text-xs text-gray-500 text-center">
+
+                {/* Mobile View (Cards) */}
+                <div className="md:hidden flex-1 overflow-auto p-4 space-y-4 bg-gray-50/50">
+                    {filteredHistory.length > 0 ? (
+                        filteredHistory.map((receipt) => (
+                            <div key={receipt.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 active:scale-[0.99] transition-transform">
+                                <div className="flex justify-between items-start mb-3">
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-bold text-gray-900 text-lg">{formatCurrency(receipt.total)}</span>
+                                            <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded font-mono">#{receipt.id}</span>
+                                        </div>
+                                        <p className="text-xs text-gray-400 mt-1">{formatDate(receipt.date)}</p>
+                                    </div>
+
+                                </div>
+
+                                <div className="py-3 border-t border-b border-gray-50 mb-3">
+                                    <div className="text-sm text-gray-600">
+                                        {receipt.items && receipt.items.length > 0 ? (
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium">{receipt.items[0].name}</span>
+                                                {receipt.items.length > 1 && (
+                                                    <span className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full">
+                                                        +{receipt.items.length - 1} รายการ
+                                                    </span>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <span className="text-gray-400 italic">ไม่มีรายการสินค้า</span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setSelectedReceipt(receipt)}
+                                        className="flex-1 py-2 text-blue-600 bg-blue-50 rounded-lg text-sm font-medium hover:bg-blue-100 flex items-center justify-center gap-2"
+                                    >
+                                        <Eye size={16} /> ดู
+                                    </button>
+                                    <button
+                                        onClick={() => handlePrint(receipt)}
+                                        className="flex-1 py-2 text-gray-600 bg-gray-50 rounded-lg text-sm font-medium hover:bg-gray-100 flex items-center justify-center gap-2"
+                                    >
+                                        <Printer size={16} /> พิมพ์
+                                    </button>
+                                    <button
+                                        onClick={() => { if (confirm('คุณแน่ใจหรือไม่ที่จะลบบิลนี้?')) deleteReceipt(receipt.id) }}
+                                        className="px-3 py-2 text-red-500 bg-red-50 rounded-lg hover:bg-red-100"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+                            <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-gray-300">
+                                <Search size={24} />
+                            </div>
+                            <p className="font-medium">ไม่พบรายการขาย</p>
+                        </div>
+                    )}
+                </div>
+
+                <div className="hidden md:block bg-gray-50 border-t border-gray-100 p-3 text-xs text-gray-500 text-center">
                     แสดงทั้งหมด {filteredHistory.length} รายการ
                 </div>
             </div>
