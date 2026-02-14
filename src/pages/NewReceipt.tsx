@@ -5,6 +5,7 @@ import { PrintPortal } from '../components/PrintPortal';
 import { User, MapPin, Printer, Save, Trash2, Plus, RefreshCw, ShoppingCart, Tag, Box, ChevronDown } from 'lucide-react';
 import { formatCurrency } from '../utils/format';
 import { clsx } from 'clsx';
+import { DebouncedInput, DebouncedTextarea } from '../components/ui/DebouncedInput';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -21,6 +22,10 @@ const NewReceipt = () => {
     const { currentItems, addItem, removeItem, clearCurrentReceipt, saveReceipt, discount, taxRate, customerName, customerAddress, setCustomerName, setCustomerAddress, documentType, setDocumentType, isOriginal, setIsOriginal, watermarkText, setWatermarkText, getNextId, editingId } = useReceiptStore();
     const [newItem, setNewItem] = React.useState({ name: '', price: '', qty: 1, unit: 'ชิ้น' });
 
+    // Local state to force re-render when store updates (if needed) but mostly handled by store subscription. 
+    // Actually, for DebouncedInput to show store values (e.g. initial load), we pass defaults?
+    // DebouncedInput handles internal state syncing via useEffect on 'value' prop.
+
     const handleAddItem = (e: React.FormEvent) => {
         e.preventDefault();
         if (!newItem.name || !newItem.price) return;
@@ -32,10 +37,27 @@ const NewReceipt = () => {
             unit: newItem.unit
         });
         setNewItem({ name: '', price: '', qty: 1, unit: 'ชิ้น' });
+        // Focus back to name input?
     };
 
     const handlePrint = () => {
-        window.print();
+        // 1. Create a style tag to forcibly hide everything except the print portal
+        // This is more robust for Webkit than just media queries sometimes
+        const moveStyle = document.createElement('style');
+        moveStyle.innerHTML = `
+            @media print {
+                body > * { display: none !important; }
+                #printable-receipt { display: block !important; }
+            }
+        `;
+        document.head.appendChild(moveStyle);
+
+        // 2. Wait for extensive layout calc (Safari/Mac fix)
+        setTimeout(() => {
+            window.print();
+            // Cleanup
+            document.head.removeChild(moveStyle);
+        }, 500);
     };
 
     const safeCurrentItems = currentItems || [];
@@ -94,12 +116,11 @@ const NewReceipt = () => {
                                     <label htmlFor="isOriginal" className="text-sm text-gray-700 cursor-pointer select-none">ต้นฉบับ (Original)</label>
                                 </div>
                                 <div className="flex-1">
-                                    <input
-                                        type="text"
+                                    <DebouncedInput
                                         placeholder="ข้อความลายน้ำ (Watermark)..."
                                         className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all shadow-sm text-sm"
                                         value={watermarkText}
-                                        onChange={(e) => setWatermarkText(e.target.value)}
+                                        onChange={(val) => setWatermarkText(String(val))}
                                     />
                                 </div>
                             </div>
@@ -112,12 +133,11 @@ const NewReceipt = () => {
                             <label className="block text-xs font-bold text-gray-500 mb-1 ml-1">ชื่อลูกค้า / หน่วยงาน</label>
                             <div className="relative">
                                 <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                <input
-                                    type="text"
+                                <DebouncedInput
                                     placeholder="ระบุชื่อลูกค้า..."
                                     className="w-full pl-10 pr-4 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all shadow-sm text-sm"
                                     value={customerName}
-                                    onChange={(e) => setCustomerName(e.target.value)}
+                                    onChange={(val) => setCustomerName(String(val))}
                                 />
                             </div>
                         </div>
@@ -125,11 +145,11 @@ const NewReceipt = () => {
                             <label className="block text-xs font-bold text-gray-500 mb-1 ml-1">ที่อยู่</label>
                             <div className="relative">
                                 <MapPin className="absolute left-3 top-3 text-gray-400" size={16} />
-                                <textarea
+                                <DebouncedTextarea
                                     placeholder="ระบุที่อยู่..."
                                     className="w-full pl-10 pr-4 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all shadow-sm text-sm resize-none h-[42px]"
                                     value={customerAddress}
-                                    onChange={(e) => setCustomerAddress(e.target.value)}
+                                    onChange={(val) => setCustomerAddress(val)}
                                 />
                             </div>
                         </div>
@@ -147,7 +167,6 @@ const NewReceipt = () => {
                                     className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all shadow-sm"
                                     value={newItem.name}
                                     onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                                    autoFocus
                                 />
                             </div>
                         </div>
@@ -241,11 +260,11 @@ const NewReceipt = () => {
                             <div className="space-y-3 w-1/2">
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 mb-1">ส่วนลด (บาท)</label>
-                                    <input
+                                    <DebouncedInput
                                         type="number"
                                         min="0"
                                         value={useReceiptStore(state => state.discount ?? 0)}
-                                        onChange={(e) => useReceiptStore.getState().setDiscount(parseFloat(e.target.value) || 0)}
+                                        onChange={(val) => useReceiptStore.getState().setDiscount(parseFloat(String(val)) || 0)}
                                         className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 outline-none"
                                         placeholder="0.00"
                                     />
@@ -253,12 +272,12 @@ const NewReceipt = () => {
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 mb-1">ภาษีมูลค่าเพิ่ม (%)</label>
                                     <div className="flex items-center gap-2">
-                                        <input
+                                        <DebouncedInput
                                             type="number"
                                             min="0"
                                             max="100"
                                             value={useReceiptStore(state => state.taxRate ?? 7)}
-                                            onChange={(e) => useReceiptStore.getState().setTaxRate(parseFloat(e.target.value) || 0)}
+                                            onChange={(val) => useReceiptStore.getState().setTaxRate(parseFloat(String(val)) || 0)}
                                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 outline-none"
                                         />
                                         <span className="text-xs text-gray-400">%</span>

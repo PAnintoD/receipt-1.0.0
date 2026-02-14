@@ -1,39 +1,46 @@
-@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
 
 @import "tailwindcss";
 
 :root {
-    font-family: 'Kanit', system-ui, sans-serif;
+    font-family: 'Sarabun', sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
 }
 
 @media print {
 
-    /* Hide the app — #printable-receipt is OUTSIDE #root via portal */
-    #root {
+    /* Hide ALL body elements by default */
+    body>* {
         display: none !important;
     }
 
-    /* Print container is in normal document flow */
+    /* Only show the print portal */
     #printable-receipt {
         display: block !important;
-        position: static !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
         width: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
-        box-shadow: none !important;
-        border: none !important;
-        max-width: none !important;
-        overflow: visible !important;
+        background: white !important;
     }
 
-    /* Each page wrapper should not be split */
+    /* Ensure pages don't break inside */
     #printable-receipt>div {
-        page-break-inside: avoid;
+        break-inside: avoid;
+        break-after: page;
     }
 
+    /* Force A4 size */
     @page {
         size: A4;
         margin: 0;
+    }
+
+    /* Force background colors */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
 }

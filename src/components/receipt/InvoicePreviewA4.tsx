@@ -75,7 +75,7 @@ export const InvoicePreviewA4 = React.forwardRef<HTMLDivElement, InvoiceA4Props>
         >
             {/* Watermark */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
-                <div className="transform -rotate-45 opacity-[0.03] text-gray-900 text-9xl font-bold whitespace-nowrap select-none border-4 border-gray-900 p-4 rounded-3xl">
+                <div className="transform -rotate-45 text-gray-100 text-9xl font-bold whitespace-nowrap select-none border-4 border-gray-100 p-4 rounded-3xl">
                     {watermarkText || config.shopName || ''}
                 </div>
             </div>
