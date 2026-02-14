@@ -25,12 +25,8 @@ try {
             tabManager: persistentMultipleTabManager()
         })
     });
-} catch (err: any) {
-    if (err.code === 'failed-precondition') {
-        console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
-    } else if (err.code === 'unimplemented') {
-        console.warn('The current browser does not support offline persistence');
-    }
+} catch (_err: any) {
+    console.warn('Firebase persistence warning');
 }
 
 export default app;
