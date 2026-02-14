@@ -15,7 +15,7 @@ const Settings = () => {
 
             const reader = new FileReader();
             reader.onloadend = () => {
-                config.updateConfig({ logo: reader.result as string });
+                config.setLogo(reader.result as string);
             };
             reader.readAsDataURL(file);
         }
@@ -39,7 +39,7 @@ const Settings = () => {
                                 <>
                                     <img src={config.logo} alt="Logo Preview" className="h-32 w-32 object-cover border-2 border-gray-100 rounded-2xl shadow-sm bg-gray-50" />
                                     <button
-                                        onClick={() => config.updateConfig({ logo: null })}
+                                        onClick={() => config.setLogo('')}
                                         className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-1.5 hover:bg-red-200 transition-colors shadow-sm opacity-0 group-hover:opacity-100"
                                         title="ลบโลโก้"
                                     >
@@ -75,7 +75,7 @@ const Settings = () => {
                         <input
                             type="text"
                             value={config.shopName}
-                            onChange={(e) => config.updateConfig({ shopName: e.target.value })}
+                            onChange={(e) => config.setShopName(e.target.value)}
                             className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all placeholder:text-gray-300"
                             placeholder="เช่น ร้านกาแฟอารมณ์ดี"
                         />
@@ -87,8 +87,8 @@ const Settings = () => {
                             <MapPin size={16} className="text-red-500" /> ที่อยู่
                         </label>
                         <textarea
-                            value={config.address}
-                            onChange={(e) => config.updateConfig({ address: e.target.value })}
+                            value={config.shopAddress}
+                            onChange={(e) => config.setShopAddress(e.target.value)}
                             rows={3}
                             className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all placeholder:text-gray-300 resize-none"
                             placeholder="ที่อยู่ร้านค้า เบอร์โทรศัพท์"
@@ -103,7 +103,7 @@ const Settings = () => {
                         <input
                             type="text"
                             value={config.taxId}
-                            onChange={(e) => config.updateConfig({ taxId: e.target.value })}
+                            onChange={(e) => config.setTaxId(e.target.value)}
                             className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all placeholder:text-gray-300 font-mono"
                             placeholder="xxxxxxxxxxxxx"
                         />
@@ -116,8 +116,8 @@ const Settings = () => {
                         </label>
                         <input
                             type="text"
-                            value={config.footerMessage}
-                            onChange={(e) => config.updateConfig({ footerMessage: e.target.value })}
+                            value={config.footerText}
+                            onChange={(e) => config.setFooterText(e.target.value)}
                             className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all placeholder:text-gray-300"
                             placeholder="ขอบคุณที่ใช้บริการ โอกาสหน้าเชิญใหม่ครับ"
                         />

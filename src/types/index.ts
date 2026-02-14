@@ -1,10 +1,9 @@
 export interface AppConfig {
     shopName: string;
-    address: string;
+    shopAddress: string;
     taxId: string;
-    logo: string | null; // Base64 string or URL
-    footerMessage: string;
-    themeColor: string; // Hex code or Tailwind class prefix
+    logo: string;
+    footerText: string;
 }
 
 export interface ReceiptItem {

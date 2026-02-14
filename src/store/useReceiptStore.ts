@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Receipt, ReceiptItem } from '../types';
+import {
+    saveReceiptToFirestore,
+    deleteReceiptFromFirestore,
+    subscribeToReceipts
+} from '../services/firestore';
 
 interface ReceiptState {
     currentItems: ReceiptItem[];
@@ -24,9 +29,11 @@ interface ReceiptState {
     clearCurrentReceipt: () => void;
 
     history: Receipt[];
-    saveReceipt: () => string; // Returns new receipt ID
-    deleteReceipt: (id: string) => void;
+    setHistory: (history: Receipt[]) => void;
+    saveReceipt: () => Promise<string>; // Returns new receipt ID
+    deleteReceipt: (id: string) => Promise<void>;
     getNextId: () => string;
+    initializeFirestore: () => (() => void);
 }
 
 export const useReceiptStore = create<ReceiptState>()(
@@ -49,33 +56,68 @@ export const useReceiptStore = create<ReceiptState>()(
             setIsOriginal: (isOriginal) => set({ isOriginal }),
             setWatermarkText: (text) => set({ watermarkText: text }),
 
-            addItem: (item) => set((state) => ({
-                currentItems: [...state.currentItems, { ...item, id: crypto.randomUUID() }]
-            })),
+            addItem: (item) => {
+                const newItem: ReceiptItem = {
+                    ...item,
+                    id: crypto.randomUUID(),
+                };
+                set((state) => ({
+                    currentItems: [...state.currentItems, newItem],
+                }));
+            },
 
-            removeItem: (id) => set((state) => ({
-                currentItems: state.currentItems.filter((i) => i.id !== id)
-            })),
+            removeItem: (id) => {
+                set((state) => ({
+                    currentItems: state.currentItems.filter((item) => item.id !== id),
+                }));
+            },
 
-            updateItem: (id, updates) => set((state) => ({
-                currentItems: state.currentItems.map((i) => (i.id === id ? { ...i, ...updates } : i))
-            })),
+            updateItem: (id, updates) => {
+                set((state) => ({
+                    currentItems: state.currentItems.map((item) =>
+                        item.id === id ? { ...item, ...updates } : item
+                    ),
+                }));
+            },
 
-            clearCurrentReceipt: () => set({ currentItems: [], discount: 0, customerName: '', customerAddress: '', documentType: 'receipt', isOriginal: true, watermarkText: '' }), // Keep tax rate preference?
+            clearCurrentReceipt: () => {
+                set({
+                    currentItems: [],
+                    discount: 0,
+                    customerName: '',
+                    customerAddress: '',
+                });
+            },
 
             history: [],
 
+            setHistory: (history) => set({ history }),
+
             getNextId: () => {
-                const { history } = get();
-                // Safety check
-                if (!Array.isArray(history)) return 'INV-20230101-0001';
+                const { history, documentType } = get();
+
+                let prefixCode = 'INV';
+                switch (documentType) {
+                    case 'receipt':
+                        prefixCode = 'rcpt';
+                        break;
+                    case 'tax_invoice':
+                        prefixCode = 'INV';
+                        break;
+                    case 'delivery_note':
+                        prefixCode = 'DN';
+                        break;
+                    default:
+                        prefixCode = 'INV';
+                }
+
+                if (!Array.isArray(history)) return `${prefixCode}-20260214-0001`;
 
                 const today = new Date();
-                const yyyy = today.getFullYear();
-                const mm = String(today.getMonth() + 1).padStart(2, '0');
-                const dd = String(today.getDate()).padStart(2, '0');
-                const dateStr = `${yyyy}${mm}${dd}`;
-                const prefix = `INV-${dateStr}-`;
+                const year = today.getFullYear();
+                const month = String(today.getMonth() + 1).padStart(2, '0');
+                const day = String(today.getDate()).padStart(2, '0');
+                const prefix = `${prefixCode}-${year}${month}${day}-`;
 
                 const todayReceipts = history.filter(r => r && r.id && r.id.startsWith(prefix));
                 let maxSeq = 0;
@@ -91,54 +133,86 @@ export const useReceiptStore = create<ReceiptState>()(
                 return `${prefix}${String(maxSeq + 1).padStart(4, '0')}`;
             },
 
-            saveReceipt: () => {
-                const { currentItems, history, discount, taxRate, customerName, customerAddress, getNextId } = get();
-                if (!currentItems || currentItems.length === 0) return '';
+            saveReceipt: async () => {
+                const {
+                    currentItems,
+                    discount,
+                    taxRate,
+                    customerName,
+                    customerAddress,
+                    documentType,
+                    isOriginal,
+                    watermarkText,
+                    history,
+                } = get();
 
                 try {
-                    const subtotal = currentItems.reduce((sum, item) => sum + item.price * item.qty, 0);
+                    const safeHistory = Array.isArray(history) ? history : [];
+                    const safeCurrentItems = Array.isArray(currentItems) ? currentItems : [];
+
+                    if (safeCurrentItems.length === 0) {
+                        console.warn('Cannot save receipt with no items');
+                        return '';
+                    }
+
+                    const subtotal = safeCurrentItems.reduce((sum, item) => sum + item.price * item.qty, 0);
                     const discountAmount = discount || 0;
                     const afterDiscount = Math.max(0, subtotal - discountAmount);
                     const taxAmount = (afterDiscount * taxRate) / 100;
                     const total = afterDiscount + taxAmount;
 
-                    const newId = getNextId();
-                    const safeHistory = Array.isArray(history) ? history : [];
-
                     const newReceipt: Receipt = {
-                        id: newId,
+                        id: get().getNextId(),
                         date: new Date().toISOString(),
-                        items: [...currentItems],
+                        items: safeCurrentItems,
                         subtotal,
                         discount: discountAmount,
                         tax: taxAmount,
                         taxRate,
                         total,
-                        customerName: customerName || '',
-                        customerAddress: customerAddress || '',
-                        documentType: get().documentType || 'receipt',
-                        isOriginal: get().isOriginal ?? true,
-                        watermarkText: get().watermarkText || '',
+                        customerName,
+                        customerAddress,
+                        documentType,
+                        isOriginal,
+                        watermarkText,
                     };
 
-                    set({
-                        history: [newReceipt, ...safeHistory],
-                        currentItems: [],
-                        discount: 0,
-                        customerName: '',
-                        customerAddress: '',
-                    });
+                    // Save to Firestore
+                    await saveReceiptToFirestore(newReceipt);
+
+                    // Update local state (will also update localStorage via persist)
+                    set({ history: [newReceipt, ...safeHistory] });
 
                     return newReceipt.id;
                 } catch (error) {
-                    console.error("Failed to save receipt:", error);
+                    console.error('Failed to save receipt:', error);
                     return '';
                 }
             },
 
-            deleteReceipt: (id) => set((state) => ({
-                history: state.history.filter((r) => r.id !== id)
-            })),
+            deleteReceipt: async (id) => {
+                try {
+                    // Delete from Firestore
+                    await deleteReceiptFromFirestore(id);
+
+                    // Update local state
+                    set((state) => ({
+                        history: state.history.filter((r) => r.id !== id),
+                    }));
+                } catch (error) {
+                    console.error('Failed to delete receipt:', error);
+                }
+            },
+
+            initializeFirestore: () => {
+                // Subscribe to Firestore changes
+                const unsubscribe = subscribeToReceipts((receipts) => {
+                    set({ history: receipts });
+                });
+
+                // Store unsubscribe function (optional, for cleanup)
+                return unsubscribe;
+            },
         }),
         {
             name: 'receipt-storage',

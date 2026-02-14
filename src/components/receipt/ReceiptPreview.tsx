@@ -18,7 +18,7 @@ interface ReceiptPreviewProps {
 export const ReceiptPreview = React.forwardRef<HTMLDivElement, ReceiptPreviewProps>(
     ({ items = [], total = 0, subtotal, discount, tax, taxRate, date, id }, ref) => {
         const configStore = useConfigStore();
-        const config = configStore || { shopName: 'ร้านค้าของฉัน', address: '', taxId: '', logo: null };
+        const config = configStore || { shopName: 'ร้านค้าของฉัน', shopAddress: '', taxId: '', logo: null };
         const displayDate = date || new Date().toISOString();
 
         // Calculate derived values if not provided (backward compatibility)
@@ -43,7 +43,7 @@ export const ReceiptPreview = React.forwardRef<HTMLDivElement, ReceiptPreviewPro
                         />
                     )}
                     <h1 className="text-xl font-bold uppercase tracking-wide">{config.shopName}</h1>
-                    <p className="text-xs mt-1.5 whitespace-pre-wrap leading-relaxed">{config.address}</p>
+                    <p className="text-xs mt-1.5 whitespace-pre-wrap leading-relaxed">{config.shopAddress}</p>
                     {config.taxId && <p className="text-xs mt-1.5">TAX ID: {config.taxId}</p>}
                 </div>
 
@@ -56,7 +56,7 @@ export const ReceiptPreview = React.forwardRef<HTMLDivElement, ReceiptPreviewPro
                     {id && (
                         <div className="flex justify-between">
                             <span>เลขที่:</span>
-                            <span>{id.slice(0, 8).toUpperCase()}</span>
+                            <span>{id.toUpperCase()}</span>
                         </div>
                     )}
                 </div>

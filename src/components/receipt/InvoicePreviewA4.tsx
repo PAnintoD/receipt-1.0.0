@@ -23,7 +23,7 @@ interface InvoiceA4Props {
 export const InvoicePreviewA4 = React.forwardRef<HTMLDivElement, InvoiceA4Props>((props, ref) => {
     const { items = [], total = 0, subtotal, discount, tax, taxRate, date, id, customerName, customerAddress, documentType = 'receipt', isOriginal = true, watermarkText } = props;
     const configStore = useConfigStore();
-    const config = configStore || { shopName: 'ร้านค้าของฉัน', address: '', taxId: '', logo: null };
+    const config = configStore || { shopName: 'ร้านค้าของฉัน', shopAddress: '', taxId: '', logo: null };
     const displayDate = date || new Date().toISOString();
 
     const effectiveSubtotal = subtotal ?? items.reduce((sum, item) => sum + item.price * item.qty, 0);
@@ -58,7 +58,7 @@ export const InvoicePreviewA4 = React.forwardRef<HTMLDivElement, InvoiceA4Props>
                     )}
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900 mb-1">{config.shopName}</h1>
-                        <p className="text-xs text-gray-500 max-w-sm whitespace-pre-wrap">{config.address}</p>
+                        <p className="text-xs text-gray-500 max-w-sm whitespace-pre-wrap">{config.shopAddress}</p>
                         {config.taxId && <p className="text-xs text-gray-500 mt-1">เลขประจำตัวผู้เสียภาษี: {config.taxId}</p>}
                     </div>
                 </div>
