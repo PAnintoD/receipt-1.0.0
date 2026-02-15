@@ -74,14 +74,14 @@ export const InvoicePreviewA4 = React.forwardRef<HTMLDivElement, InvoiceA4Props>
             className="bg-white w-full max-w-[210mm] h-[297mm] mx-auto p-4 relative text-gray-800 font-sans leading-relaxed shadow-sm print:shadow-none print:w-full print:max-w-none box-border flex flex-col"
         >
             {/* Watermark */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-60">
                 <div className="transform -rotate-45 text-gray-100 text-9xl font-bold whitespace-nowrap select-none border-4 border-gray-100 p-4 rounded-3xl">
                     {watermarkText || config.shopName || ''}
                 </div>
             </div>
 
             {/* Header — shown on every page */}
-            <div className="flex justify-between items-start mb-4 shrink-0">
+            <div className="flex justify-between items-start mb-4 shrink-0 relative z-10">
                 <div className="flex gap-4">
                     {config.logo && (
                         <img src={config.logo} alt="Logo" className="h-16 w-16 object-contain" />
@@ -113,7 +113,7 @@ export const InvoicePreviewA4 = React.forwardRef<HTMLDivElement, InvoiceA4Props>
 
             {/* Customer Info — shown only on first page */}
             {pageNumber === 1 && (
-                <div className="mb-4 border border-blue-100 rounded-xl bg-blue-50/30 p-3 shrink-0">
+                <div className="mb-4 border border-blue-100 rounded-xl bg-blue-50/30 p-3 shrink-0 relative z-10">
                     <h3 className="text-xs font-bold text-blue-500 uppercase tracking-wider mb-1">ข้อมูลลูกค้า / CUSTOMER INFO</h3>
                     {customerName ? (
                         <>
@@ -127,10 +127,10 @@ export const InvoicePreviewA4 = React.forwardRef<HTMLDivElement, InvoiceA4Props>
             )}
 
             {/* Items Table — grows to fill available space */}
-            <div className="flex-1 mb-4">
+            <div className="flex-1 mb-4 relative z-10">
                 <table className="w-full text-sm">
                     <thead>
-                        <tr className="bg-gray-900 text-white">
+                        <tr className="bg-gray-100 text-gray-700 border-y border-gray-200 print:bg-gray-100 print:text-gray-900 print:border-gray-300">
                             <th className="py-2.5 px-3 text-center w-14 rounded-l-lg">ลำดับ</th>
                             <th className="py-2.5 px-3 text-left">รายละเอียด / Description</th>
                             <th className="py-2.5 px-3 text-center w-16">จำนวน</th>
@@ -168,7 +168,7 @@ export const InvoicePreviewA4 = React.forwardRef<HTMLDivElement, InvoiceA4Props>
             </div>
 
             {/* Footer — depends on whether this is the last page */}
-            <div className="shrink-0 mt-auto">
+            <div className="shrink-0 mt-auto relative z-10">
                 {isLastPage ? (
                     <>
                         {/* Totals */}
@@ -205,7 +205,7 @@ export const InvoicePreviewA4 = React.forwardRef<HTMLDivElement, InvoiceA4Props>
                         </div>
 
                         {/* Signatures */}
-                        <div className="flex justify-between mt-4 pb-0 break-inside-avoid">
+                        <div className="flex justify-between mt-16 pb-0 break-inside-avoid">
                             <div className="text-center w-56 pt-6 border-t border-gray-300">
                                 <p className="text-sm font-bold text-gray-700">ผู้รับเงิน / Receiver</p>
                                 <p className="text-xs text-gray-400 mt-1">วันที่ ______________</p>
