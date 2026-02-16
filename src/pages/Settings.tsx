@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useConfigStore } from '../store/useConfigStore';
-import { Upload, X, Store, MapPin, Hash, Type, Loader2 } from 'lucide-react';
+import { Upload, X, Store, MapPin, Hash, Loader2 } from 'lucide-react';
 
 const Settings = () => {
     const config = useConfigStore();
