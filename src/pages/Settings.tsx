@@ -105,6 +105,21 @@ const Settings = () => {
                         />
                     </div>
 
+                    {/* Default Watermark */}
+                    <div className="col-span-1 md:col-span-2">
+                        <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                            <Store size={16} className="text-indigo-500" /> ลายน้ำเริ่มต้น (เมื่อไม่ได้ระบุในบิล)
+                        </label>
+                        <input
+                            type="text"
+                            value={config.defaultWatermark || ''}
+                            onChange={(e) => config.setDefaultWatermark(e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all placeholder:text-gray-300"
+                            placeholder="เช่น ชื่อร้านค้า หรือข้อความที่ต้องการ"
+                        />
+                        <p className="text-xs text-gray-400 mt-2 ml-1">ข้อความนี้จะแสดงเป็นลายน้ำเมื่อคุณไม่ได้ระบุข้อความลายน้ำในหน้าบิล (ถ้าเว้นว่างจะใช้ชื่อร้านค้าแทน)</p>
+                    </div>
+
                     {/* Address */}
                     <div className="col-span-1 md:col-span-2">
                         <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
@@ -133,20 +148,7 @@ const Settings = () => {
                         />
                     </div>
 
-                    {/* Footer Message */}
-                    <div className="col-span-1 md:col-span-2">
-                        <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
-                            <Type size={16} className="text-green-500" /> ข้อความท้ายใบเสร็จ
-                        </label>
-                        <input
-                            type="text"
-                            value={config.footerText}
-                            onChange={(e) => config.setFooterText(e.target.value)}
-                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all placeholder:text-gray-300"
-                            placeholder="ขอบคุณที่ใช้บริการ โอกาสหน้าเชิญใหม่ครับ"
-                        />
-                        <p className="text-xs text-gray-400 mt-2 ml-1">ข้อความนี้จะแสดงอยู่ด้านล่างสุดของใบเสร็จ</p>
-                    </div>
+
                 </div>
             </div>
         </div>

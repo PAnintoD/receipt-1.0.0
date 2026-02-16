@@ -4,6 +4,7 @@ export interface AppConfig {
     taxId: string;
     logo: string;
     footerText: string;
+    defaultWatermark?: string;
 }
 
 export interface ReceiptItem {

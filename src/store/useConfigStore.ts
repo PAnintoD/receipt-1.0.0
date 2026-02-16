@@ -9,6 +9,7 @@ interface ConfigState extends AppConfig {
     setTaxId: (taxId: string) => Promise<void>;
     setFooterText: (text: string) => Promise<void>;
     setLogo: (logo: string) => Promise<void>;
+    setDefaultWatermark: (text: string) => Promise<void>;
     initializeFirestore: () => (() => void);
 }
 
@@ -20,6 +21,7 @@ function getConfigData(state: ConfigState): AppConfig {
         taxId: state.taxId,
         logo: state.logo,
         footerText: state.footerText,
+        defaultWatermark: state.defaultWatermark,
     };
 }
 
@@ -31,6 +33,7 @@ export const useConfigStore = create<ConfigState>()(
             taxId: '0-1234-56789-01-2',
             footerText: 'ขอบคุณที่ใช้บริการ',
             logo: '',
+            defaultWatermark: '',
 
             setShopName: async (name) => {
                 set({ shopName: name });
@@ -49,6 +52,11 @@ export const useConfigStore = create<ConfigState>()(
 
             setFooterText: async (text) => {
                 set({ footerText: text });
+                await saveConfigToFirestore(getConfigData(get()));
+            },
+
+            setDefaultWatermark: async (text) => {
+                set({ defaultWatermark: text });
                 await saveConfigToFirestore(getConfigData(get()));
             },
 

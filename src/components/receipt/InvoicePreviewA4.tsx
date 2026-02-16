@@ -28,7 +28,7 @@ interface InvoiceA4Props {
     isLastPage?: boolean;
 }
 
-export const InvoicePreviewA4 = React.forwardRef<HTMLDivElement, InvoiceA4Props>((props, ref) => {
+export const InvoicePreviewA4 = React.memo(React.forwardRef<HTMLDivElement, InvoiceA4Props>((props, ref) => {
     const {
         items = [],
         total = 0,
@@ -75,8 +75,8 @@ export const InvoicePreviewA4 = React.forwardRef<HTMLDivElement, InvoiceA4Props>
         >
             {/* Watermark */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-60">
-                <div className="transform -rotate-45 text-gray-100 text-9xl font-bold whitespace-nowrap select-none border-4 border-gray-100 p-4 rounded-3xl">
-                    {watermarkText || config.shopName || ''}
+                <div className="transform -rotate-45 text-gray-200 text-9xl font-bold whitespace-nowrap select-none border-4 border-gray-200 p-4 rounded-3xl">
+                    {watermarkText || config.defaultWatermark || config.shopName || ''}
                 </div>
             </div>
 
@@ -128,7 +128,7 @@ export const InvoicePreviewA4 = React.forwardRef<HTMLDivElement, InvoiceA4Props>
 
             {/* Items Table — grows to fill available space */}
             <div className="flex-1 mb-4 relative z-10">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm border-b border-gray-200">
                     <thead>
                         <tr className="bg-gray-100 text-gray-700 border-y border-gray-200 print:bg-gray-100 print:text-gray-900 print:border-gray-300">
                             <th className="py-2.5 px-3 text-center w-14 rounded-l-lg">ลำดับ</th>
@@ -226,6 +226,6 @@ export const InvoicePreviewA4 = React.forwardRef<HTMLDivElement, InvoiceA4Props>
             </div>
         </div>
     );
-});
+}));
 
 InvoicePreviewA4.displayName = 'InvoicePreviewA4';

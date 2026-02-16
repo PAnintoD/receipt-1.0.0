@@ -46,11 +46,39 @@ const History = () => {
     const [searchTerm, setSearchTerm] = React.useState('');
     const [docTypeFilter, setDocTypeFilter] = React.useState<DocTypeFilter>('all');
 
-    const [printReceipt, setPrintReceipt] = React.useState<Receipt | null>(null);
+    const [printQueue, setPrintQueue] = React.useState<Receipt[]>([]);
+    const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
 
     const handlePrint = (receipt: Receipt) => {
-        setPrintReceipt(receipt);
+        setPrintQueue([receipt]);
         // Wait for React to render the portal content, then print
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                window.print();
+            });
+        });
+    };
+
+    const handlePrintAll = () => {
+        let receiptsToPrint: Receipt[] = [];
+
+        if (selectedIds.size > 0) {
+            // Print only selected
+            receiptsToPrint = safeHistory.filter(h => selectedIds.has(h.id));
+        } else {
+            // Print all filtered
+            receiptsToPrint = filteredHistory;
+        }
+
+        if (receiptsToPrint.length === 0) return;
+
+        if (receiptsToPrint.length > 50) {
+            if (!confirm(`คุณต้องการพิมพ์ทั้งหมด ${receiptsToPrint.length} รายการใช่หรือไม่? อาจใช้เวลานานและกระดาษจำนวนมาก`)) {
+                return;
+            }
+        }
+
+        setPrintQueue(receiptsToPrint);
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 window.print();
@@ -61,6 +89,24 @@ const History = () => {
     const handleEdit = (receipt: Receipt) => {
         loadReceipt(receipt);
         navigate('/new');
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.size === filteredHistory.length && filteredHistory.length > 0) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(filteredHistory.map(h => h.id)));
+        }
+    };
+
+    const toggleSelect = (id: string) => {
+        const newSelected = new Set(selectedIds);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedIds(newSelected);
     };
 
     const safeHistory = Array.isArray(history) ? history : [];
@@ -89,12 +135,6 @@ const History = () => {
         return chunkArray(selectedReceipt.items || [], ITEMS_PER_PAGE);
     }, [selectedReceipt]);
 
-    // Pagination for print receipt
-    const printPages = React.useMemo(() => {
-        if (!printReceipt) return [[]];
-        return chunkArray(printReceipt.items || [], ITEMS_PER_PAGE);
-    }, [printReceipt]);
-
     return (
         <div className="animate-fade-in-up h-full flex flex-col">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 shrink-0 print:hidden">
@@ -104,15 +144,34 @@ const History = () => {
                     <p className="text-gray-500 mt-1">เรียกดูและจัดการบิลย้อนหลังทั้งหมดของคุณ</p>
                 </div>
 
-                <div className="relative w-full md:w-64 group">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={18} />
-                    <input
-                        type="text"
-                        placeholder="ค้นหาเลขบิล หรือชื่อสินค้า..."
-                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all shadow-sm"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+                <div className="flex gap-3 w-full md:w-auto">
+                    <div className="relative flex-1 md:w-64 group">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={18} />
+                        <input
+                            type="text"
+                            placeholder="ค้นหาเลขบิล หรือชื่อสินค้า..."
+                            className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all shadow-sm"
+                            value={searchTerm}
+                            onChange={(e) => {
+                                setSearchTerm(e.target.value);
+                                setSelectedIds(new Set()); // Reset selection on search
+                            }}
+                        />
+                    </div>
+                    {filteredHistory.length > 0 && (
+                        <button
+                            onClick={handlePrintAll}
+                            className={`px-4 py-2.5 text-white rounded-xl shadow-lg transition-all flex items-center gap-2 font-medium shrink-0 ${selectedIds.size > 0
+                                ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200 hover:shadow-indigo-300'
+                                : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200 hover:shadow-blue-300'
+                                }`}
+                        >
+                            <Printer size={18} />
+                            <span className="hidden sm:inline">
+                                {selectedIds.size > 0 ? `พิมพ์ที่เลือก (${selectedIds.size})` : `พิมพ์ทั้งหมด (${filteredHistory.length})`}
+                            </span>
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -122,7 +181,10 @@ const History = () => {
                 {(Object.keys(DOC_TYPE_LABELS) as DocTypeFilter[]).map(type => (
                     <button
                         key={type}
-                        onClick={() => setDocTypeFilter(type)}
+                        onClick={() => {
+                            setDocTypeFilter(type);
+                            setSelectedIds(new Set()); // Reset on filter change
+                        }}
                         className={`px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${docTypeFilter === type
                             ? 'bg-blue-600 text-white shadow-lg shadow-blue-200'
                             : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
@@ -145,6 +207,19 @@ const History = () => {
                     <table className="w-full text-sm">
                         <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10 backdrop-blur-sm bg-gray-50/90">
                             <tr>
+                                <th className="px-6 py-4 w-12 text-center">
+                                    <input
+                                        type="checkbox"
+                                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                        checked={filteredHistory.length > 0 && selectedIds.size === filteredHistory.length}
+                                        ref={input => {
+                                            if (input) {
+                                                input.indeterminate = selectedIds.size > 0 && selectedIds.size < filteredHistory.length;
+                                            }
+                                        }}
+                                        onChange={toggleSelectAll}
+                                    />
+                                </th>
                                 <th className="px-6 py-4 text-left font-bold text-gray-600">วันที่</th>
                                 <th className="px-6 py-4 text-left font-bold text-gray-600">เลขบิล</th>
                                 <th className="px-6 py-4 text-left font-bold text-gray-600">ประเภท</th>
@@ -155,7 +230,25 @@ const History = () => {
                         </thead>
                         <tbody className="divide-y divide-gray-50">
                             {filteredHistory.map((receipt) => (
-                                <tr key={receipt.id} className="hover:bg-blue-50/50 transition-colors group">
+                                <tr
+                                    key={receipt.id}
+                                    className={`hover:bg-blue-50/50 transition-colors group cursor-pointer ${selectedIds.has(receipt.id) ? 'bg-blue-50/30' : ''}`}
+                                    onClick={(e) => {
+                                        // Toggle select on row click unless clicking buttons/action area
+                                        if (!(e.target as HTMLElement).closest('button, a, input[type="checkbox"]')) {
+                                            toggleSelect(receipt.id);
+                                        }
+                                    }}
+                                >
+                                    <td className="px-6 py-4 text-center">
+                                        <input
+                                            type="checkbox"
+                                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                            checked={selectedIds.has(receipt.id)}
+                                            onChange={() => toggleSelect(receipt.id)}
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                    </td>
                                     <td className="px-6 py-4 text-gray-600 whitespace-nowrap">
                                         <div className="flex flex-col">
                                             <span className="font-medium text-gray-900">{formatDate(receipt.date).split(' ')[0]}</span>
@@ -180,17 +273,17 @@ const History = () => {
                                     </td>
                                     <td className="px-6 py-4 text-right font-bold text-gray-900">{formatCurrency(receipt.total)}</td>
                                     <td className="px-6 py-4">
-                                        <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => setSelectedReceipt(receipt)} className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-100" title="ดูรายละเอียด">
+                                        <div className="flex justify-center gap-2 transition-opacity">
+                                            <button onClick={(e) => { e.stopPropagation(); setSelectedReceipt(receipt); }} className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-100" title="ดูรายละเอียด">
                                                 <Eye size={16} />
                                             </button>
-                                            <button onClick={() => handleEdit(receipt)} className="p-2 text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors border border-orange-100" title="แก้ไข">
+                                            <button onClick={(e) => { e.stopPropagation(); handleEdit(receipt); }} className="p-2 text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors border border-orange-100" title="แก้ไข">
                                                 <Pencil size={16} />
                                             </button>
-                                            <button onClick={() => handlePrint(receipt)} className="p-2 text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-100" title="พิมพ์ใบเสร็จ">
+                                            <button onClick={(e) => { e.stopPropagation(); handlePrint(receipt); }} className="p-2 text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-100" title="พิมพ์ใบเสร็จ">
                                                 <Printer size={16} />
                                             </button>
-                                            <button onClick={() => { if (confirm('คุณแน่ใจหรือไม่ที่จะลบบิลนี้?')) deleteReceipt(receipt.id) }} className="p-2 text-red-500 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-100" title="ลบรายการ">
+                                            <button onClick={(e) => { e.stopPropagation(); if (confirm('คุณแน่ใจหรือไม่ที่จะลบบิลนี้?')) deleteReceipt(receipt.id); }} className="p-2 text-red-500 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-100" title="ลบรายการ">
                                                 <Trash2 size={16} />
                                             </button>
                                         </div>
@@ -199,7 +292,7 @@ const History = () => {
                             ))}
                             {filteredHistory.length === 0 && (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-20 text-center text-gray-400">
+                                    <td colSpan={7} className="px-6 py-20 text-center text-gray-400">
                                         <div className="flex flex-col items-center justify-center">
                                             <div className="h-16 w-16 bg-gray-50 rounded-full flex items-center justify-center mb-4 text-gray-300">
                                                 <FileText size={32} />
@@ -218,24 +311,37 @@ const History = () => {
                 <div className="md:hidden flex-1 overflow-auto p-4 space-y-4 bg-gray-50/50">
                     {filteredHistory.length > 0 ? (
                         filteredHistory.map((receipt) => (
-                            <div key={receipt.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 active:scale-[0.99] transition-transform">
+                            <div
+                                key={receipt.id}
+                                className={`bg-white rounded-xl p-4 shadow-sm border active:scale-[0.99] transition-transform ${selectedIds.has(receipt.id) ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-100'}`}
+                                onClick={() => toggleSelect(receipt.id)}
+                            >
                                 <div className="flex justify-between items-start mb-3">
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-bold text-gray-900 text-lg">{formatCurrency(receipt.total)}</span>
-                                            <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded font-mono">#{receipt.id}</span>
+                                    <div className="flex items-start gap-3">
+                                        <div className="pt-1" onClick={(e) => e.stopPropagation()}>
+                                            <input
+                                                type="checkbox"
+                                                className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                checked={selectedIds.has(receipt.id)}
+                                                onChange={() => toggleSelect(receipt.id)}
+                                            />
                                         </div>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <p className="text-xs text-gray-400">{formatDate(receipt.date)}</p>
-                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${DOC_TYPE_COLORS[receipt.documentType || 'receipt'] || 'bg-gray-100 text-gray-600'}`}>
-                                                {DOC_TYPE_BADGE_LABEL[receipt.documentType || 'receipt'] || 'ใบเสร็จ'}
-                                            </span>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-bold text-gray-900 text-lg">{formatCurrency(receipt.total)}</span>
+                                                <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded font-mono">#{receipt.id}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <p className="text-xs text-gray-400">{formatDate(receipt.date)}</p>
+                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${DOC_TYPE_COLORS[receipt.documentType || 'receipt'] || 'bg-gray-100 text-gray-600'}`}>
+                                                    {DOC_TYPE_BADGE_LABEL[receipt.documentType || 'receipt'] || 'ใบเสร็จ'}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
-
                                 </div>
 
-                                <div className="py-3 border-t border-b border-gray-50 mb-3">
+                                <div className="py-3 border-t border-b border-gray-50 mb-3 pl-8">
                                     <div className="text-sm text-gray-600">
                                         {receipt.items && receipt.items.length > 0 ? (
                                             <div className="flex items-center gap-2">
@@ -252,27 +358,27 @@ const History = () => {
                                     </div>
                                 </div>
 
-                                <div className="flex gap-2">
+                                <div className="flex gap-2 pl-8">
                                     <button
-                                        onClick={() => setSelectedReceipt(receipt)}
+                                        onClick={(e) => { e.stopPropagation(); setSelectedReceipt(receipt); }}
                                         className="flex-1 py-2 text-blue-600 bg-blue-50 rounded-lg text-sm font-medium hover:bg-blue-100 flex items-center justify-center gap-2"
                                     >
                                         <Eye size={16} /> ดู
                                     </button>
                                     <button
-                                        onClick={() => handleEdit(receipt)}
+                                        onClick={(e) => { e.stopPropagation(); handleEdit(receipt); }}
                                         className="flex-1 py-2 text-orange-600 bg-orange-50 rounded-lg text-sm font-medium hover:bg-orange-100 flex items-center justify-center gap-2"
                                     >
                                         <Pencil size={16} /> แก้ไข
                                     </button>
                                     <button
-                                        onClick={() => handlePrint(receipt)}
+                                        onClick={(e) => { e.stopPropagation(); handlePrint(receipt); }}
                                         className="flex-1 py-2 text-gray-600 bg-gray-50 rounded-lg text-sm font-medium hover:bg-gray-100 flex items-center justify-center gap-2"
                                     >
                                         <Printer size={16} /> พิมพ์
                                     </button>
                                     <button
-                                        onClick={() => { if (confirm('คุณแน่ใจหรือไม่ที่จะลบบิลนี้?')) deleteReceipt(receipt.id) }}
+                                        onClick={(e) => { e.stopPropagation(); if (confirm('คุณแน่ใจหรือไม่ที่จะลบบิลนี้?')) deleteReceipt(receipt.id); }}
                                         className="px-3 py-2 text-red-500 bg-red-50 rounded-lg hover:bg-red-100"
                                     >
                                         <Trash2 size={16} />
@@ -363,32 +469,47 @@ const History = () => {
 
             {/* Print Container — rendered via portal outside #root */}
             <PrintPortal>
-                {printReceipt && printPages.map((pageItems, pageIdx) => (
-                    <div
-                        key={pageIdx}
-                        style={pageIdx < printPages.length - 1 ? { breakAfter: 'page' } : undefined}
-                    >
-                        <InvoicePreviewA4
-                            items={pageItems}
-                            total={printReceipt.total}
-                            subtotal={printReceipt.subtotal}
-                            discount={printReceipt.discount}
-                            tax={printReceipt.tax}
-                            taxRate={printReceipt.taxRate}
-                            date={printReceipt.date}
-                            id={printReceipt.id}
-                            customerName={printReceipt.customerName}
-                            customerAddress={printReceipt.customerAddress}
-                            documentType={printReceipt.documentType}
-                            isOriginal={printReceipt.isOriginal}
-                            watermarkText={printReceipt.watermarkText}
-                            pageNumber={pageIdx + 1}
-                            totalPages={printPages.length}
-                            startIndex={pageIdx * ITEMS_PER_PAGE}
-                            isLastPage={pageIdx === printPages.length - 1}
-                        />
-                    </div>
-                ))}
+                {printQueue.map((receipt, receiptIdx) => {
+                    const pages = chunkArray(receipt.items || [], ITEMS_PER_PAGE);
+                    const totalReceiptPages = pages.length;
+
+                    return pages.map((pageItems, pageIdx) => {
+                        // Check if this is the absolute last page of the entire print job
+                        const isLastPageOfReceipt = pageIdx === totalReceiptPages - 1;
+                        const isLastReceipt = receiptIdx === printQueue.length - 1;
+                        const isAbsoluteLastPage = isLastReceipt && isLastPageOfReceipt;
+
+                        // Only add break-after if it's NOT the last page of the last receipt
+                        const shouldBreak = !isAbsoluteLastPage;
+
+                        return (
+                            <div
+                                key={`${receipt.id}-${pageIdx}`}
+                                style={shouldBreak ? { breakAfter: 'page' } : undefined}
+                            >
+                                <InvoicePreviewA4
+                                    items={pageItems}
+                                    total={receipt.total}
+                                    subtotal={receipt.subtotal}
+                                    discount={receipt.discount}
+                                    tax={receipt.tax}
+                                    taxRate={receipt.taxRate}
+                                    date={receipt.date}
+                                    id={receipt.id}
+                                    customerName={receipt.customerName}
+                                    customerAddress={receipt.customerAddress}
+                                    documentType={receipt.documentType}
+                                    isOriginal={receipt.isOriginal}
+                                    watermarkText={receipt.watermarkText}
+                                    pageNumber={pageIdx + 1}
+                                    totalPages={totalReceiptPages}
+                                    startIndex={pageIdx * ITEMS_PER_PAGE}
+                                    isLastPage={isLastPageOfReceipt}
+                                />
+                            </div>
+                        );
+                    });
+                })}
             </PrintPortal>
         </div>
     );
