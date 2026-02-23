@@ -19,7 +19,7 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
 }
 
 const NewReceipt = () => {
-    const { currentItems, addItem, removeItem, clearCurrentReceipt, saveReceipt, discount, taxRate, customerName, customerAddress, setCustomerName, setCustomerAddress, documentType, setDocumentType, isOriginal, setIsOriginal, watermarkText, setWatermarkText, getNextId, editingId } = useReceiptStore();
+    const { currentItems, addItem, removeItem, clearCurrentReceipt, saveReceipt, discount, setDiscount, taxRate, setTaxRate, customerName, customerAddress, setCustomerName, setCustomerAddress, documentType, setDocumentType, isOriginal, setIsOriginal, watermarkText, setWatermarkText, getNextId, editingId } = useReceiptStore();
     const [newItem, setNewItem] = React.useState({ name: '', price: '', qty: 1, unit: 'ชิ้น' });
 
     // Local state to force re-render when store updates (if needed) but mostly handled by store subscription. 
@@ -260,11 +260,15 @@ const NewReceipt = () => {
                             <div className="space-y-3 w-1/2">
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 mb-1">ส่วนลด (บาท)</label>
-                                    <DebouncedInput
+                                    <input
                                         type="number"
                                         min="0"
-                                        value={useReceiptStore(state => state.discount ?? 0)}
-                                        onChange={(val) => useReceiptStore.getState().setDiscount(parseFloat(String(val)) || 0)}
+                                        step="any"
+                                        value={discount === 0 ? '' : discount}
+                                        onChange={(e) => {
+                                            const v = parseFloat(e.target.value);
+                                            setDiscount(isNaN(v) ? 0 : v);
+                                        }}
                                         className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 outline-none"
                                         placeholder="0.00"
                                     />
@@ -272,12 +276,16 @@ const NewReceipt = () => {
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 mb-1">ภาษีมูลค่าเพิ่ม (%)</label>
                                     <div className="flex items-center gap-2">
-                                        <DebouncedInput
+                                        <input
                                             type="number"
                                             min="0"
                                             max="100"
-                                            value={useReceiptStore(state => state.taxRate ?? 7)}
-                                            onChange={(val) => useReceiptStore.getState().setTaxRate(parseFloat(String(val)) || 0)}
+                                            step="any"
+                                            value={taxRate === 0 ? '' : taxRate}
+                                            onChange={(e) => {
+                                                const v = parseFloat(e.target.value);
+                                                setTaxRate(isNaN(v) ? 0 : v);
+                                            }}
                                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 outline-none"
                                         />
                                         <span className="text-xs text-gray-400">%</span>
