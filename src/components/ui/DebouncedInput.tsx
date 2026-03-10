@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface DebouncedInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
     value: string | number;
@@ -13,6 +13,11 @@ export const DebouncedInput: React.FC<DebouncedInputProps> = ({
     ...props
 }) => {
     const [value, setValue] = useState(initialValue);
+    const onChangeRef = useRef(onChange);
+
+    useEffect(() => {
+        onChangeRef.current = onChange;
+    }, [onChange]);
 
     useEffect(() => {
         setValue(initialValue);
@@ -20,17 +25,25 @@ export const DebouncedInput: React.FC<DebouncedInputProps> = ({
 
     useEffect(() => {
         const timeout = setTimeout(() => {
-            onChange(value);
+            if (onChangeRef.current) {
+                onChangeRef.current(value);
+            }
         }, debounce);
 
         return () => clearTimeout(timeout);
-    }, [value, debounce, onChange]);
+    }, [value, debounce]);
 
     return (
         <input
             {...props}
             value={value}
             onChange={(e) => setValue(e.target.value)}
+            onBlur={(e) => {
+                if (onChangeRef.current) {
+                    onChangeRef.current(value);
+                }
+                if (props.onBlur) props.onBlur(e);
+            }}
         />
     );
 };
@@ -48,6 +61,11 @@ export const DebouncedTextarea: React.FC<DebouncedTextareaProps> = ({
     ...props
 }) => {
     const [value, setValue] = useState(initialValue);
+    const onChangeRef = useRef(onChange);
+
+    useEffect(() => {
+        onChangeRef.current = onChange;
+    }, [onChange]);
 
     useEffect(() => {
         setValue(initialValue);
@@ -55,17 +73,25 @@ export const DebouncedTextarea: React.FC<DebouncedTextareaProps> = ({
 
     useEffect(() => {
         const timeout = setTimeout(() => {
-            onChange(value);
+            if (onChangeRef.current) {
+                onChangeRef.current(value);
+            }
         }, debounce);
 
         return () => clearTimeout(timeout);
-    }, [value, debounce, onChange]);
+    }, [value, debounce]);
 
     return (
         <textarea
             {...props}
             value={value}
             onChange={(e) => setValue(e.target.value)}
+            onBlur={(e) => {
+                if (onChangeRef.current) {
+                    onChangeRef.current(value);
+                }
+                if (props.onBlur) props.onBlur(e);
+            }}
         />
     );
 };
