@@ -3,6 +3,10 @@ import { storage } from '../lib/firebase';
 
 const LOGO_PATH = 'logos/shop-logo';
 
+interface StorageError {
+    code?: string;
+}
+
 /**
  * Upload a logo file to Firebase Storage and return the download URL.
  * Replaces any existing logo at the same path.
@@ -28,9 +32,9 @@ export const deleteLogo = async (): Promise<void> => {
     try {
         const storageRef = ref(storage, LOGO_PATH);
         await deleteObject(storageRef);
-    } catch (error: any) {
+    } catch (error: unknown) {
         // Ignore "object-not-found" errors (logo was already deleted or never existed)
-        if (error?.code === 'storage/object-not-found') {
+        if ((error as StorageError)?.code === 'storage/object-not-found') {
             return;
         }
         console.error('Error deleting logo:', error);

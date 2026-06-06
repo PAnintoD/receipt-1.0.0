@@ -5,9 +5,10 @@ import { formatDate, formatCurrency } from '../utils/format';
 import { Printer, Trash2, Eye, Search, FileText, X, Filter, Pencil } from 'lucide-react';
 import { InvoicePreviewA4 } from '../components/receipt/InvoicePreviewA4';
 import { PrintPortal } from '../components/PrintPortal';
-import type { Receipt } from '../types';
+import type { DocumentType, Receipt } from '../types';
 
 const ITEMS_PER_PAGE = 10;
+const EMPTY_RECEIPTS: Receipt[] = [];
 
 /** Split an array into chunks of a given size */
 function chunkArray<T>(arr: T[], size: number): T[][] {
@@ -18,25 +19,28 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
     return chunks.length > 0 ? chunks : [[]];
 }
 
-type DocTypeFilter = 'all' | 'receipt' | 'tax_invoice' | 'delivery_note';
+type DocTypeFilter = 'all' | DocumentType;
 
 const DOC_TYPE_LABELS: Record<DocTypeFilter, string> = {
     all: 'ทั้งหมด',
     receipt: 'ใบเสร็จรับเงิน',
     tax_invoice: 'ใบกำกับภาษี',
     delivery_note: 'ใบส่งของ',
+    quotation: 'ใบเสนอราคา',
 };
 
 const DOC_TYPE_BADGE_LABEL: Record<string, string> = {
     receipt: 'ใบเสร็จ',
     tax_invoice: 'ใบกำกับภาษี',
     delivery_note: 'ใบส่งของ',
+    quotation: 'ใบเสนอราคา',
 };
 
 const DOC_TYPE_COLORS: Record<string, string> = {
     receipt: 'bg-green-100 text-green-700',
     tax_invoice: 'bg-blue-100 text-blue-700',
     delivery_note: 'bg-orange-100 text-orange-700',
+    quotation: 'bg-indigo-100 text-indigo-700',
 };
 
 const History = () => {
@@ -109,25 +113,29 @@ const History = () => {
         setSelectedIds(newSelected);
     };
 
-    const safeHistory = Array.isArray(history) ? history : [];
+    const safeHistory = Array.isArray(history) ? history : EMPTY_RECEIPTS;
 
     // Count by type (for badge numbers)
-    const typeCounts = React.useMemo(() => {
-        const counts: Record<string, number> = { all: safeHistory.length, receipt: 0, tax_invoice: 0, delivery_note: 0 };
+    const typeCounts = (() => {
+        const counts: Record<DocTypeFilter, number> = { all: safeHistory.length, receipt: 0, tax_invoice: 0, delivery_note: 0, quotation: 0 };
         safeHistory.forEach(h => {
             const t = h.documentType || 'receipt';
             if (counts[t] !== undefined) counts[t]++;
         });
         return counts;
-    }, [safeHistory]);
+    })();
 
     // Apply type filter first, then search
-    const filteredHistory = safeHistory
-        .filter(h => docTypeFilter === 'all' || (h.documentType || 'receipt') === docTypeFilter)
-        .filter(h =>
-            (h.id?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-            (h.items || []).some(i => (i.name || '').toLowerCase().includes(searchTerm.toLowerCase()))
-        );
+    const filteredHistory = (() => {
+        const normalizedSearch = searchTerm.toLowerCase();
+        return safeHistory
+            .filter(h => docTypeFilter === 'all' || (h.documentType || 'receipt') === docTypeFilter)
+            .filter(h =>
+                (h.id?.toLowerCase() || '').includes(normalizedSearch) ||
+                (h.customerName?.toLowerCase() || '').includes(normalizedSearch) ||
+                (h.items || []).some(i => (i.name || '').toLowerCase().includes(normalizedSearch))
+            );
+    })();
 
     // Pagination for selected receipt (modal preview)
     const selectedPages = React.useMemo(() => {
@@ -140,8 +148,8 @@ const History = () => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 shrink-0 print:hidden">
                 {/* ... Header content ... */}
                 <div>
-                    <h2 className="text-3xl font-bold text-gray-800 tracking-tight">ประวัติการขาย</h2>
-                    <p className="text-gray-500 mt-1">เรียกดูและจัดการบิลย้อนหลังทั้งหมดของคุณ</p>
+                    <h2 className="text-3xl font-bold text-gray-800 tracking-tight">ประวัติเอกสาร</h2>
+                    <p className="text-gray-500 mt-1">เรียกดูและจัดการเอกสารย้อนหลังทั้งหมดของคุณ</p>
                 </div>
 
                 <div className="flex gap-3 w-full md:w-auto">
@@ -149,7 +157,7 @@ const History = () => {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={18} />
                         <input
                             type="text"
-                            placeholder="ค้นหาเลขบิล หรือชื่อสินค้า..."
+                            placeholder="ค้นหาเลขเอกสาร ลูกค้า หรือชื่อสินค้า..."
                             className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all shadow-sm"
                             value={searchTerm}
                             onChange={(e) => {
@@ -280,7 +288,7 @@ const History = () => {
                                             <button onClick={(e) => { e.stopPropagation(); handleEdit(receipt); }} className="p-2 text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors border border-orange-100" title="แก้ไข">
                                                 <Pencil size={16} />
                                             </button>
-                                            <button onClick={(e) => { e.stopPropagation(); handlePrint(receipt); }} className="p-2 text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-100" title="พิมพ์ใบเสร็จ">
+                                            <button onClick={(e) => { e.stopPropagation(); handlePrint(receipt); }} className="p-2 text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-100" title="พิมพ์เอกสาร">
                                                 <Printer size={16} />
                                             </button>
                                             <button onClick={(e) => { e.stopPropagation(); if (confirm('คุณแน่ใจหรือไม่ที่จะลบบิลนี้?')) deleteReceipt(receipt.id); }} className="p-2 text-red-500 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-100" title="ลบรายการ">
@@ -297,8 +305,8 @@ const History = () => {
                                             <div className="h-16 w-16 bg-gray-50 rounded-full flex items-center justify-center mb-4 text-gray-300">
                                                 <FileText size={32} />
                                             </div>
-                                            <p className="font-medium">ไม่พบรายการขาย</p>
-                                            <p className="text-sm mt-1 text-gray-400">ลองค้นหาด้วยคำอื่น หรือสร้างใบเสร็จใหม่</p>
+                                            <p className="font-medium">ไม่พบเอกสาร</p>
+                                            <p className="text-sm mt-1 text-gray-400">ลองค้นหาด้วยคำอื่น หรือสร้างเอกสารใหม่</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -391,7 +399,7 @@ const History = () => {
                             <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-gray-300">
                                 <Search size={24} />
                             </div>
-                            <p className="font-medium">ไม่พบรายการขาย</p>
+                            <p className="font-medium">ไม่พบเอกสาร</p>
                         </div>
                     )}
                 </div>
@@ -411,7 +419,7 @@ const History = () => {
                         {/* Modal Header */}
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-bold text-gray-800">
-                                รายละเอียดใบเสร็จ
+                                รายละเอียดเอกสาร
                                 {selectedPages.length > 1 && (
                                     <span className="ml-2 text-sm font-normal text-gray-400">({selectedPages.length} หน้า)</span>
                                 )}
@@ -443,6 +451,8 @@ const History = () => {
                                             documentType={selectedReceipt.documentType}
                                             isOriginal={selectedReceipt.isOriginal}
                                             watermarkText={selectedReceipt.watermarkText}
+                                            proposerName={selectedReceipt.proposerName}
+                                            remarks={selectedReceipt.remarks}
                                             pageNumber={pageIdx + 1}
                                             totalPages={selectedPages.length}
                                             startIndex={pageIdx * ITEMS_PER_PAGE}
@@ -501,6 +511,8 @@ const History = () => {
                                     documentType={receipt.documentType}
                                     isOriginal={receipt.isOriginal}
                                     watermarkText={receipt.watermarkText}
+                                    proposerName={receipt.proposerName}
+                                    remarks={receipt.remarks}
                                     pageNumber={pageIdx + 1}
                                     totalPages={totalReceiptPages}
                                     startIndex={pageIdx * ITEMS_PER_PAGE}

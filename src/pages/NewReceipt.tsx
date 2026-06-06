@@ -1,11 +1,14 @@
 import React from 'react';
 import { useReceiptStore } from '../store/useReceiptStore';
+import { useConfigStore } from '../store/useConfigStore';
 import { InvoicePreviewA4 } from '../components/receipt/InvoicePreviewA4';
 import { PrintPortal } from '../components/PrintPortal';
-import { User, MapPin, Printer, Save, Trash2, Plus, RefreshCw, ShoppingCart, Tag, Box, ChevronDown } from 'lucide-react';
+import { User, MapPin, Printer, Save, Trash2, Plus, RefreshCw, ShoppingCart, Tag, Box, ChevronDown, Users } from 'lucide-react';
 import { formatCurrency } from '../utils/format';
+import { calcTotals } from '../utils/calculations';
 import { clsx } from 'clsx';
 import { DebouncedInput, DebouncedTextarea } from '../components/ui/DebouncedInput';
+import type { DocumentType } from '../types';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -19,7 +22,9 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
 }
 
 const NewReceipt = () => {
-    const { currentItems, addItem, removeItem, clearCurrentReceipt, saveReceipt, discount, setDiscount, taxRate, setTaxRate, customerName, customerAddress, setCustomerName, setCustomerAddress, documentType, setDocumentType, isOriginal, setIsOriginal, watermarkText, setWatermarkText, getNextId, editingId } = useReceiptStore();
+    const { currentItems, addItem, removeItem, clearCurrentReceipt, saveReceipt, discount, setDiscount, taxRate, setTaxRate, customerName, customerAddress, setCustomerName, setCustomerAddress, documentType, setDocumentType, isOriginal, setIsOriginal, watermarkText, setWatermarkText, proposerName, setProposerName, remarks, setRemarks, getNextId, editingId, savedCurrentReceiptId, isSaving } = useReceiptStore();
+    const config = useConfigStore();
+    const customers = config.customers || [];
     const [newItem, setNewItem] = React.useState({ name: '', price: '', qty: 1, unit: 'ชิ้น' });
 
     // Local state to force re-render when store updates (if needed) but mostly handled by store subscription. 
@@ -60,14 +65,13 @@ const NewReceipt = () => {
         }, 500);
     };
 
-    const safeCurrentItems = currentItems || [];
-    const subtotal = safeCurrentItems.reduce((sum, item) => sum + item.price * item.qty, 0);
-    const discountAmount = discount || 0;
-    const afterDiscount = Math.max(0, subtotal - discountAmount);
-    const taxAmount = (afterDiscount * taxRate) / 100;
-    const total = afterDiscount + taxAmount;
+    const safeCurrentItems = React.useMemo(() => currentItems || [], [currentItems]);
+    const { subtotal, discountAmount, taxAmount, total } = React.useMemo(
+        () => calcTotals(safeCurrentItems, discount, taxRate),
+        [safeCurrentItems, discount, taxRate]
+    );
 
-    const nextId = editingId || getNextId();
+    const nextId = editingId || savedCurrentReceiptId || getNextId();
 
     // Pagination: split items into pages of 10
     const pages = React.useMemo(() => chunkArray(safeCurrentItems, ITEMS_PER_PAGE), [safeCurrentItems]);
@@ -83,8 +87,8 @@ const NewReceipt = () => {
                             <ShoppingCart size={20} />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-gray-800">{editingId ? 'แก้ไขใบเสร็จ' : 'สร้างใบเสร็จ'}</h2>
-                            <p className="text-xs text-gray-500">{editingId ? 'แก้ไขข้อมูลใบเสร็จที่บันทึกไว้' : 'เพิ่มข้อมูลลูกค้าและรายการสินค้า'}</p>
+                            <h2 className="text-xl font-bold text-gray-800">{editingId ? 'แก้ไขเอกสาร' : 'สร้างเอกสาร'}</h2>
+                            <p className="text-xs text-gray-500">{editingId ? 'แก้ไขข้อมูลเอกสารที่บันทึกไว้' : 'เพิ่มข้อมูลลูกค้าและรายการสินค้า'}</p>
                         </div>
                     </div>
 
@@ -95,12 +99,13 @@ const NewReceipt = () => {
                             <div className="relative">
                                 <select
                                     value={documentType}
-                                    onChange={(e) => setDocumentType(e.target.value as any)}
+                                    onChange={(e) => setDocumentType(e.target.value as DocumentType)}
                                     className="w-full pl-4 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all shadow-sm appearance-none cursor-pointer text-sm font-medium text-gray-700"
                                 >
                                     <option value="receipt">ใบเสร็จรับเงิน (Receipt)</option>
                                     <option value="tax_invoice">ใบกำกับภาษี (Tax Invoice)</option>
                                     <option value="delivery_note">ใบส่งของ (Delivery Note)</option>
+                                    <option value="quotation">ใบเสนอราคา (Quotation)</option>
                                 </select>
                                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
                             </div>
@@ -125,10 +130,61 @@ const NewReceipt = () => {
                                 </div>
                             </div>
                         </div>
+                        {documentType === 'quotation' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1 ml-1">ชื่อผู้เสนอราคา</label>
+                                    <div className="relative">
+                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                        <DebouncedInput
+                                            placeholder="ระบุชื่อผู้เสนอราคา..."
+                                            className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all shadow-sm text-sm"
+                                            value={proposerName}
+                                            onChange={(val) => setProposerName(String(val))}
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1 ml-1">หมายเหตุเพิ่มเติม</label>
+                                    <DebouncedTextarea
+                                        placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"
+                                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all shadow-sm text-sm resize-none h-[42px]"
+                                        value={remarks}
+                                        onChange={(val) => setRemarks(val)}
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Customer Info */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                        {customers.length > 0 && (
+                            <div className="md:col-span-2">
+                                <label className="block text-xs font-bold text-gray-500 mb-1 ml-1">เลือกลูกค้า / หน่วยงานที่บันทึกไว้</label>
+                                <div className="relative">
+                                    <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                    <select
+                                        value=""
+                                        onChange={(e) => {
+                                            const customer = customers.find((item) => item.id === e.target.value);
+                                            if (!customer) return;
+                                            setCustomerName(customer.name);
+                                            setCustomerAddress(customer.address);
+                                        }}
+                                        className="w-full pl-10 pr-10 py-2.5 bg-white border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all shadow-sm text-sm appearance-none cursor-pointer"
+                                    >
+                                        <option value="">เลือกจากรายชื่อที่บันทึกไว้...</option>
+                                        {customers.map((customer) => (
+                                            <option key={customer.id} value={customer.id}>
+                                                {customer.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+                                </div>
+                            </div>
+                        )}
                         <div>
                             <label className="block text-xs font-bold text-gray-500 mb-1 ml-1">ชื่อลูกค้า / หน่วยงาน</label>
                             <div className="relative">
@@ -241,11 +297,11 @@ const NewReceipt = () => {
                                 ))}
                                 {safeCurrentItems.length === 0 && (
                                     <tr>
-                                        <td colSpan={4} className="px-4 py-16 text-center text-gray-400">
+                                        <td colSpan={5} className="px-4 py-16 text-center text-gray-400">
                                             <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-100 rounded-xl py-8 bg-gray-50/50 mx-4">
                                                 <ShoppingCart size={32} className="opacity-20 mb-2" />
                                                 <p className="font-medium text-gray-500">ยังไม่มีรายการสินค้า</p>
-                                                <p className="text-xs mt-1 text-gray-400">เพิ่มรายการด้านบนเพื่อเริ่มสร้างใบเสร็จ</p>
+                                                <p className="text-xs mt-1 text-gray-400">เพิ่มรายการด้านบนเพื่อเริ่มสร้างเอกสาร</p>
                                             </div>
                                         </td>
                                     </tr>
@@ -305,15 +361,20 @@ const NewReceipt = () => {
                             <button onClick={clearCurrentReceipt} className="px-4 py-3 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 hover:text-red-500 transition-colors flex items-center justify-center gap-2 font-medium" title="ล้างรายการทั้งหมด">
                                 <RefreshCw size={18} /> <span className="hidden sm:inline">ล้าง</span>
                             </button>
-                            <button onClick={async () => {
-                                const id = await saveReceipt();
-                                if (id) {
-                                    alert(`บันทึกสำเร็จ! เลขที่ใบเสร็จ: ${id}`);
+                            <button disabled={isSaving || safeCurrentItems.length === 0} onClick={async () => {
+                                const result = await saveReceipt();
+                                if (result.status === 'saved') {
+                                    alert(`บันทึกสำเร็จ! เลขที่เอกสาร: ${result.id}`);
+                                } else if (result.status === 'duplicate') {
+                                    alert(`เอกสารนี้มีอยู่แล้ว: ${result.id}`);
                                 } else {
                                     alert('เกิดข้อผิดพลาดในการบันทึก กรุณาลองใหม่');
                                 }
-                            }} className="px-4 py-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition-colors flex items-center justify-center gap-2 font-medium shadow-sm">
-                                <Save size={18} /> {editingId ? 'บันทึกการแก้ไข' : 'บันทึก'}
+                            }} className={clsx(
+                                "px-4 py-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl transition-colors flex items-center justify-center gap-2 font-medium shadow-sm",
+                                isSaving || safeCurrentItems.length === 0 ? "opacity-60 cursor-not-allowed" : "hover:bg-emerald-100"
+                            )}>
+                                <Save size={18} /> {isSaving ? 'กำลังบันทึก...' : editingId ? 'บันทึกการแก้ไข' : 'บันทึก'}
                             </button>
                             <button
                                 onClick={handlePrint}
@@ -323,7 +384,7 @@ const NewReceipt = () => {
                                 )}
                                 disabled={safeCurrentItems.length === 0}
                             >
-                                <Printer size={20} /> พิมพ์ใบเสร็จ
+                                <Printer size={20} /> พิมพ์เอกสาร
                             </button>
                         </div>
                     </div>
@@ -333,7 +394,7 @@ const NewReceipt = () => {
                 <div className="hidden lg:flex w-[380px] flex-col min-h-0 bg-gray-100 rounded-2xl border border-gray-200 overflow-hidden">
                     <div className="p-4 bg-gray-200 border-b border-gray-300/50 flex items-center justify-between">
                         <h2 className="font-bold text-gray-700 flex items-center gap-2">
-                            <Printer size={16} /> ตัวอย่างใบเสร็จ
+                            <Printer size={16} /> ตัวอย่างเอกสาร
                         </h2>
                         <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">
                             {totalPages > 1 ? `A4 · ${totalPages} หน้า` : 'A4 Invoice'}
@@ -356,6 +417,8 @@ const NewReceipt = () => {
                                             documentType={documentType}
                                             isOriginal={isOriginal}
                                             watermarkText={watermarkText}
+                                            proposerName={proposerName}
+                                            remarks={remarks || (documentType === 'quotation' ? config.defaultRemarks : undefined)}
                                             id={nextId}
                                             pageNumber={pageIdx + 1}
                                             totalPages={totalPages}
@@ -389,6 +452,8 @@ const NewReceipt = () => {
                             documentType={documentType}
                             isOriginal={isOriginal}
                             watermarkText={watermarkText}
+                            proposerName={proposerName}
+                            remarks={remarks || (documentType === 'quotation' ? config.defaultRemarks : undefined)}
                             id={nextId}
                             pageNumber={pageIdx + 1}
                             totalPages={totalPages}

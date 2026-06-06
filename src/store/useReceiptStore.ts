@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Receipt, ReceiptItem } from '../types';
+import type { DocumentType, Receipt, ReceiptItem } from '../types';
 import {
     saveReceiptToFirestore,
     deleteReceiptFromFirestore,
@@ -8,37 +8,50 @@ import {
 } from '../services/firestore';
 import { calcTotals } from '../utils/calculations';
 
+type SaveReceiptResult = {
+    id: string;
+    status: 'saved' | 'duplicate' | 'error';
+};
+
 interface ReceiptState {
     currentItems: ReceiptItem[];
     discount: number;
     taxRate: number;
     customerName: string;
     customerAddress: string;
-    documentType: 'receipt' | 'tax_invoice' | 'delivery_note';
+    documentType: DocumentType;
     isOriginal: boolean;
     watermarkText: string;
+    proposerName: string;
+    remarks: string;
     setDiscount: (amount: number) => void;
     setTaxRate: (rate: number) => void;
     setCustomerName: (name: string) => void;
     setCustomerAddress: (address: string) => void;
-    setDocumentType: (type: 'receipt' | 'tax_invoice' | 'delivery_note') => void;
+    setDocumentType: (type: DocumentType) => void;
     setIsOriginal: (isOriginal: boolean) => void;
     setWatermarkText: (text: string) => void;
+    setProposerName: (name: string) => void;
+    setRemarks: (remarks: string) => void;
     addItem: (item: Omit<ReceiptItem, 'id'>) => void;
     removeItem: (id: string) => void;
     updateItem: (id: string, updates: Partial<ReceiptItem>) => void;
     clearCurrentReceipt: () => void;
 
     editingId: string | null;
+    savedCurrentReceiptId: string | null;
+    isSaving: boolean;
     loadReceipt: (receipt: Receipt) => void;
 
     history: Receipt[];
     setHistory: (history: Receipt[]) => void;
-    saveReceipt: () => Promise<string>; // Returns new receipt ID
+    saveReceipt: () => Promise<SaveReceiptResult>;
     deleteReceipt: (id: string) => Promise<void>;
     getNextId: () => string;
     initializeFirestore: () => (() => void);
 }
+
+let pendingSave: Promise<SaveReceiptResult> | null = null;
 
 export const useReceiptStore = create<ReceiptState>()(
     persist(
@@ -51,6 +64,8 @@ export const useReceiptStore = create<ReceiptState>()(
             documentType: 'receipt',
             isOriginal: true,
             watermarkText: '',
+            proposerName: '',
+            remarks: '',
 
             setDiscount: (amount) => set({ discount: amount }),
             setTaxRate: (rate) => set({ taxRate: rate }),
@@ -59,8 +74,12 @@ export const useReceiptStore = create<ReceiptState>()(
             setDocumentType: (type) => set({ documentType: type }),
             setIsOriginal: (isOriginal) => set({ isOriginal }),
             setWatermarkText: (text) => set({ watermarkText: text }),
+            setProposerName: (name) => set({ proposerName: name }),
+            setRemarks: (remarks) => set({ remarks }),
 
             editingId: null,
+            savedCurrentReceiptId: null,
+            isSaving: false,
 
             loadReceipt: (receipt) => {
                 set({
@@ -72,7 +91,10 @@ export const useReceiptStore = create<ReceiptState>()(
                     documentType: receipt.documentType || 'receipt',
                     isOriginal: receipt.isOriginal ?? true,
                     watermarkText: receipt.watermarkText || '',
+                    proposerName: receipt.proposerName || '',
+                    remarks: receipt.remarks || '',
                     editingId: receipt.id,
+                    savedCurrentReceiptId: null,
                 });
             },
 
@@ -107,7 +129,10 @@ export const useReceiptStore = create<ReceiptState>()(
                     customerName: '',
                     customerAddress: '',
                     editingId: null,
+                    savedCurrentReceiptId: null,
                     watermarkText: '',
+                    proposerName: '',
+                    remarks: '',
                 });
             },
 
@@ -128,6 +153,9 @@ export const useReceiptStore = create<ReceiptState>()(
                         break;
                     case 'delivery_note':
                         prefixCode = 'DN';
+                        break;
+                    case 'quotation':
+                        prefixCode = 'QT';
                         break;
                     default:
                         prefixCode = 'INV';
@@ -156,68 +184,89 @@ export const useReceiptStore = create<ReceiptState>()(
             },
 
             saveReceipt: async () => {
-                const {
-                    currentItems,
-                    discount,
-                    taxRate,
-                    customerName,
-                    customerAddress,
-                    documentType,
-                    isOriginal,
-                    watermarkText,
-                    history,
-                    editingId,
-                } = get();
+                if (pendingSave) return pendingSave;
 
-                try {
-                    const safeHistory = Array.isArray(history) ? history : [];
-                    const safeCurrentItems = Array.isArray(currentItems) ? currentItems : [];
-
-                    if (safeCurrentItems.length === 0) {
-                        console.warn('Cannot save receipt with no items');
-                        return '';
-                    }
-
-                    const { subtotal, discountAmount, taxAmount, total } = calcTotals(
-                        safeCurrentItems,
+                pendingSave = (async () => {
+                    const {
+                        currentItems,
                         discount,
-                        taxRate
-                    );
-
-                    const newReceipt: Receipt = {
-                        id: editingId || get().getNextId(),
-                        date: new Date().toISOString(), // Always update date on save? Or keep original? Let's update to show "modified" time, or maybe we want to keep original date? Usually edit updates the record. Let's start with updating.
-                        items: safeCurrentItems,
-                        subtotal,
-                        discount: discountAmount,
-                        tax: taxAmount,
                         taxRate,
-                        total,
                         customerName,
                         customerAddress,
                         documentType,
                         isOriginal,
                         watermarkText,
-                    };
+                        proposerName,
+                        remarks,
+                        history,
+                        editingId,
+                        savedCurrentReceiptId,
+                    } = get();
 
-                    // Save to Firestore
-                    await saveReceiptToFirestore(newReceipt);
+                    try {
+                        set({ isSaving: true });
+                        const safeHistory = Array.isArray(history) ? history : [];
+                        const safeCurrentItems = Array.isArray(currentItems) ? currentItems : [];
 
-                    // Update local state
-                    if (editingId) {
+                        if (safeCurrentItems.length === 0) {
+                            console.warn('Cannot save receipt with no items');
+                            return { id: '', status: 'error' };
+                        }
+
+                        if (!editingId && savedCurrentReceiptId) {
+                            const alreadyExists = safeHistory.some(h => h.id === savedCurrentReceiptId);
+                            if (alreadyExists) {
+                                return { id: savedCurrentReceiptId, status: 'duplicate' };
+                            }
+
+                            set({ savedCurrentReceiptId: null });
+                        }
+
+                        const { subtotal, discountAmount, taxAmount, total } = calcTotals(
+                            safeCurrentItems,
+                            discount,
+                            taxRate
+                        );
+
+                        const newReceipt: Receipt = {
+                            id: editingId || get().getNextId(),
+                            date: new Date().toISOString(),
+                            items: safeCurrentItems,
+                            subtotal,
+                            discount: discountAmount,
+                            tax: taxAmount,
+                            taxRate,
+                            total,
+                            customerName,
+                            customerAddress,
+                            documentType,
+                            isOriginal,
+                            watermarkText,
+                            proposerName,
+                            remarks,
+                        };
+
+                        await saveReceiptToFirestore(newReceipt);
+
                         set({
-                            history: safeHistory.map(h => h.id === editingId ? newReceipt : h),
-                            editingId: null, // Clear editing state after save
+                            history: safeHistory.some(h => h.id === newReceipt.id)
+                                ? safeHistory.map(h => h.id === newReceipt.id ? newReceipt : h)
+                                : [newReceipt, ...safeHistory],
+                            editingId: null,
+                            savedCurrentReceiptId: editingId ? null : newReceipt.id,
                         });
-                    } else {
-                        set({ history: [newReceipt, ...safeHistory] });
-                    }
 
-                    return newReceipt.id;
-                } catch (error) {
-                    console.error('Failed to save receipt:', error);
-                    return '';
-                }
+                        return { id: newReceipt.id, status: 'saved' };
+                    } catch (error) {
+                        console.error('Failed to save receipt:', error);
+                        return { id: '', status: 'error' };
+                    } finally {
+                        pendingSave = null;
+                        set({ isSaving: false });
+                    }
+                })();
+
+                return pendingSave;
             },
 
             deleteReceipt: async (id) => {
@@ -228,6 +277,8 @@ export const useReceiptStore = create<ReceiptState>()(
                     // Update local state
                     set((state) => ({
                         history: state.history.filter((r) => r.id !== id),
+                        editingId: state.editingId === id ? null : state.editingId,
+                        savedCurrentReceiptId: state.savedCurrentReceiptId === id ? null : state.savedCurrentReceiptId,
                     }));
                 } catch (error) {
                     console.error('Failed to delete receipt:', error);
@@ -246,6 +297,10 @@ export const useReceiptStore = create<ReceiptState>()(
         }),
         {
             name: 'receipt-storage',
+            partialize: (state) => ({
+                ...state,
+                isSaving: false,
+            }),
         }
     )
 );

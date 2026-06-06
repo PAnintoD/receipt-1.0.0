@@ -11,8 +11,8 @@ export const Layout = () => {
     // Localization map
     const navItems = [
         { to: '/', icon: LayoutDashboard, label: 'ภาพรวม' }, // Dashboard
-        { to: '/new', icon: PlusCircle, label: 'สร้างใบเสร็จ' }, // New Receipt
-        { to: '/history', icon: History, label: 'ประวัติการขาย' }, // History
+        { to: '/new', icon: PlusCircle, label: 'สร้างเอกสาร' }, // New Receipt
+        { to: '/history', icon: History, label: 'ประวัติเอกสาร' }, // History
         { to: '/settings', icon: Settings, label: 'ตั้งค่าร้านค้า' }, // Settings
     ];
 

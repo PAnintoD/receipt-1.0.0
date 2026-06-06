@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { useConfigStore } from '../store/useConfigStore';
-import { Upload, X, Store, MapPin, Hash, Loader2 } from 'lucide-react';
+import { Upload, X, Store, MapPin, Hash, Loader2, Plus, Trash2, Pencil, Save, Users } from 'lucide-react';
+import type { CustomerInfo } from '../types';
 
 const Settings = () => {
     const config = useConfigStore();
     const [uploading, setUploading] = useState(false);
+    const [customerDraft, setCustomerDraft] = useState({ name: '', address: '' });
+    const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
 
     const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -42,6 +45,28 @@ const Settings = () => {
         } finally {
             setUploading(false);
         }
+    };
+
+    const resetCustomerForm = () => {
+        setCustomerDraft({ name: '', address: '' });
+        setEditingCustomerId(null);
+    };
+
+    const handleCustomerSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!customerDraft.name.trim()) return;
+
+        if (editingCustomerId) {
+            await config.updateCustomer(editingCustomerId, customerDraft);
+        } else {
+            await config.addCustomer(customerDraft);
+        }
+        resetCustomerForm();
+    };
+
+    const handleCustomerEdit = (customer: CustomerInfo) => {
+        setCustomerDraft({ name: customer.name, address: customer.address });
+        setEditingCustomerId(customer.id);
     };
 
     return (
@@ -137,18 +162,114 @@ const Settings = () => {
                     {/* Tax ID */}
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
-                            <Hash size={16} className="text-purple-500" /> เลขประจำตัวผู้เสียภาษี (ถ้ามี)
+                            <Hash size={16} className="text-purple-500" /> เลขประจำตัวผู้เสียภาษี
                         </label>
                         <input
                             type="text"
                             value={config.taxId}
                             onChange={(e) => config.setTaxId(e.target.value)}
-                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all placeholder:text-gray-300 font-mono"
-                            placeholder="xxxxxxxxxxxxx"
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all placeholder:text-gray-300"
+                            placeholder="เช่น 0-1234-56789-01-2"
                         />
                     </div>
+                </div>
 
+                {/* Customer Directory */}
+                <div className="pt-8 border-t border-gray-100">
+                    <div className="flex items-center justify-between gap-4 mb-4">
+                        <div>
+                            <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                                <Users size={18} className="text-blue-500" />
+                                รายชื่อลูกค้า / หน่วยงาน
+                            </h3>
+                            <p className="text-sm text-gray-500 mt-1">บันทึกข้อมูลลูกค้าที่ใช้บ่อย แล้วเลือกเติมในหน้าออกเอกสารได้ทันที</p>
+                        </div>
+                    </div>
 
+                    <form onSubmit={handleCustomerSubmit} className="grid grid-cols-1 md:grid-cols-5 gap-3 bg-gray-50 border border-gray-100 rounded-xl p-4 mb-4">
+                        <div className="md:col-span-2">
+                            <label className="block text-xs font-bold text-gray-500 mb-1 ml-1">ชื่อลูกค้า / หน่วยงาน</label>
+                            <input
+                                type="text"
+                                value={customerDraft.name}
+                                onChange={(e) => setCustomerDraft((draft) => ({ ...draft, name: e.target.value }))}
+                                className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-sm"
+                                placeholder="เช่น บริษัท ตัวอย่าง จำกัด"
+                            />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="block text-xs font-bold text-gray-500 mb-1 ml-1">ที่อยู่</label>
+                            <input
+                                type="text"
+                                value={customerDraft.address}
+                                onChange={(e) => setCustomerDraft((draft) => ({ ...draft, address: e.target.value }))}
+                                className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-sm"
+                                placeholder="ที่อยู่สำหรับออกเอกสาร"
+                            />
+                        </div>
+                        <div className="flex items-end gap-2">
+                            <button
+                                type="submit"
+                                className="flex-1 h-[42px] bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium shadow-lg shadow-blue-200"
+                            >
+                                {editingCustomerId ? <Save size={18} /> : <Plus size={18} />}
+                                <span className="hidden sm:inline">{editingCustomerId ? 'บันทึก' : 'เพิ่ม'}</span>
+                            </button>
+                            {editingCustomerId && (
+                                <button
+                                    type="button"
+                                    onClick={resetCustomerForm}
+                                    className="h-[42px] w-[42px] border border-gray-200 text-gray-500 rounded-xl hover:bg-white transition-colors flex items-center justify-center"
+                                    title="ยกเลิกแก้ไข"
+                                >
+                                    <X size={18} />
+                                </button>
+                            )}
+                        </div>
+                    </form>
+
+                    <div className="border border-gray-100 rounded-xl overflow-hidden">
+                        {(config.customers || []).length > 0 ? (
+                            <div className="divide-y divide-gray-100">
+                                {(config.customers || []).map((customer) => (
+                                    <div key={customer.id} className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 hover:bg-blue-50/30 transition-colors">
+                                        <div className="min-w-0">
+                                            <p className="font-bold text-gray-800 truncate">{customer.name}</p>
+                                            <p className="text-sm text-gray-500 mt-1 whitespace-pre-wrap">{customer.address || '-'}</p>
+                                        </div>
+                                        <div className="flex gap-2 shrink-0">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleCustomerEdit(customer)}
+                                                className="p-2 text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors border border-orange-100"
+                                                title="แก้ไขลูกค้า"
+                                            >
+                                                <Pencil size={16} />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (confirm('คุณแน่ใจหรือไม่ที่จะลบรายชื่อลูกค้านี้?')) {
+                                                        void config.deleteCustomer(customer.id);
+                                                        if (editingCustomerId === customer.id) resetCustomerForm();
+                                                    }
+                                                }}
+                                                className="p-2 text-red-500 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-100"
+                                                title="ลบลูกค้า"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="py-10 text-center text-gray-400 bg-gray-50/50">
+                                <Users size={28} className="mx-auto mb-2 opacity-40" />
+                                <p className="text-sm font-medium">ยังไม่มีรายชื่อลูกค้าที่บันทึกไว้</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

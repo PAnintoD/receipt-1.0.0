@@ -1,6 +1,6 @@
 import React from 'react';
 import { useConfigStore } from '../../store/useConfigStore';
-import type { ReceiptItem } from '../../types';
+import type { DocumentType, ReceiptItem } from '../../types';
 import { formatCurrency, formatDate } from '../../utils/format';
 import { thaiBahtText } from '../../utils/thaiBaht';
 import { calcLineTotal } from '../../utils/calculations';
@@ -18,15 +18,21 @@ interface InvoiceA4Props {
     id?: string;
     customerName?: string;
     customerAddress?: string;
-    documentType?: 'receipt' | 'tax_invoice' | 'delivery_note';
+    documentType?: DocumentType;
     isOriginal?: boolean;
     watermarkText?: string;
+    proposerName?: string;
+    remarks?: string;
     // Pagination props
     pageNumber?: number;
     totalPages?: number;
     startIndex?: number;
     isLastPage?: boolean;
 }
+
+const formatPlainMoney = (amount: number) => formatCurrency(amount).replace('฿', '').trim();
+
+const formatQty = (qty: number) => Number.isInteger(qty) ? String(qty) : String(qty);
 
 export const InvoicePreviewA4 = React.memo(React.forwardRef<HTMLDivElement, InvoiceA4Props>((props, ref) => {
     const {
@@ -43,6 +49,8 @@ export const InvoicePreviewA4 = React.memo(React.forwardRef<HTMLDivElement, Invo
         documentType = 'receipt',
         isOriginal = true,
         watermarkText,
+        proposerName,
+        remarks,
         pageNumber = 1,
         totalPages = 1,
         startIndex = 0,
@@ -61,12 +69,184 @@ export const InvoicePreviewA4 = React.memo(React.forwardRef<HTMLDivElement, Invo
         switch (documentType) {
             case 'tax_invoice': return 'ใบกำกับภาษี / Tax Invoice';
             case 'delivery_note': return 'ใบส่งของ / Delivery Note';
+            case 'quotation': return 'ใบเสนอราคา / Quotation';
             default: return 'ใบเสร็จรับเงิน / Receipt';
         }
     };
 
     // Fill empty rows to maintain consistent page height
     const emptyRowCount = Math.max(0, ITEMS_PER_PAGE - items.length);
+
+    if (documentType === 'quotation') {
+        const validUntil = new Date(displayDate);
+        validUntil.setDate(validUntil.getDate() + 30);
+
+        return (
+            <div
+                ref={ref}
+                className="bg-white w-full max-w-[210mm] h-[297mm] mx-auto px-[10mm] pt-[10mm] pb-[8mm] relative text-slate-800 font-sans leading-normal shadow-sm print:shadow-none print:w-full print:max-w-none box-border flex flex-col overflow-hidden"
+            >
+                <div className="flex justify-between gap-8 pb-5 border-b-2 border-slate-900 shrink-0">
+                    <div className="flex items-start gap-4 min-w-0 flex-1">
+                        {config.logo && (
+                            <div className="h-[76px] w-[76px] border border-slate-300 rounded-xl flex items-center justify-center shrink-0 bg-slate-50 overflow-hidden">
+                                <img
+                                    src={config.logo}
+                                    alt="Logo"
+                                    className="h-full w-full object-contain p-1"
+                                />
+                            </div>
+                        )}
+                        <div className="min-w-0 pt-1">
+                            <h1 className="text-[22px] font-bold text-slate-800 leading-tight">{config.shopName}</h1>
+                            <p className="text-[11px] text-slate-500 mt-2 whitespace-pre-wrap leading-snug max-w-[380px]">{config.shopAddress}</p>
+                            {config.taxId && (
+                                <p className="text-[11px] text-slate-600 mt-3 border-t border-slate-200 pt-2">
+                                    เลขประจำตัวผู้เสียภาษี: <span className="font-medium">{config.taxId}</span>
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="w-[190px] shrink-0 text-right pt-1">
+                        <h2 className="text-[34px] font-bold text-slate-800 leading-tight">ใบเสนอราคา</h2>
+                        <div className="grid grid-cols-[74px_1fr] gap-y-2 mt-4 text-[12px] text-slate-700">
+                            <span className="font-bold text-left">เลขที่</span>
+                            <span className="font-mono font-bold">{id || 'QT-XXXX'}</span>
+                            <span className="font-bold text-left">วันที่</span>
+                            <span>{formatDate(displayDate).split(' ')[0]}</span>
+                            <span className="font-bold text-left">ยืนราคาถึง</span>
+                            <span>{formatDate(validUntil.toISOString()).split(' ')[0]}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-5 mt-6 mb-6 shrink-0">
+                    <div className="border border-slate-300 rounded-2xl p-5 min-h-[132px] bg-slate-50/40">
+                        <h3 className="text-[15px] font-bold text-slate-800 mb-4">เสนอราคาให้</h3>
+                        {customerName ? (
+                            <>
+                                <p className="text-[14px] font-bold text-slate-900 leading-snug">{customerName}</p>
+                                <p className="text-[12px] text-slate-600 whitespace-pre-wrap leading-snug mt-5">{customerAddress || '-'}</p>
+                            </>
+                        ) : (
+                            <p className="text-[12px] text-slate-400 italic">ไม่ได้ระบุข้อมูลลูกค้า</p>
+                        )}
+                    </div>
+
+                    <div className="border border-slate-300 rounded-2xl p-5 min-h-[132px] bg-slate-50/40">
+                        <h3 className="text-[15px] font-bold text-slate-800 mb-4">เงื่อนไขการเสนอราคา</h3>
+                        <p className="text-[12px] text-slate-600">ยืนราคาภายใน 30 วัน</p>
+                    </div>
+                </div>
+
+                <h3 className="text-[15px] font-bold text-slate-800 mb-2">รายการสินค้า / บริการ</h3>
+                <div className="shrink-0">
+                    <table className="w-full border-collapse text-[11px]">
+                        <thead>
+                            <tr className="bg-slate-800 text-white">
+                                <th className="border border-slate-800 py-2 px-2 text-center w-9">#</th>
+                                <th className="border border-slate-800 py-2 px-3 text-left">รายละเอียด</th>
+                                <th className="border border-slate-800 py-2 px-2 text-center w-20">จำนวน</th>
+                                <th className="border border-slate-800 py-2 px-2 text-right w-24">ราคา/หน่วย</th>
+                                <th className="border border-slate-800 py-2 px-2 text-right w-24">รวม</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {items.map((item, index) => (
+                                <tr key={item.id} className="h-[42px]">
+                                    <td className="border border-slate-300 text-center align-top pt-2 text-slate-700">{startIndex + index + 1}</td>
+                                    <td className="border border-slate-300 px-3 py-2 align-top text-slate-700 leading-snug">{item.name}</td>
+                                    <td className="border border-slate-300 px-2 py-2 text-center align-top text-slate-700">{formatQty(item.qty)}</td>
+                                    <td className="border border-slate-300 px-2 py-2 text-right align-top font-mono text-slate-700">{formatPlainMoney(item.price)}</td>
+                                    <td className="border border-slate-300 px-2 py-2 text-right align-top font-mono font-bold text-slate-700">{formatPlainMoney(calcLineTotal(item.price, item.qty))}</td>
+                                </tr>
+                            ))}
+
+                            {items.length === 0 && (
+                                <tr className="h-[44px]">
+                                    <td colSpan={5} className="border border-slate-300 text-center text-slate-400 italic">ไม่มีรายการสินค้า</td>
+                                </tr>
+                            )}
+
+                            {!isLastPage && (
+                                <tr>
+                                    <td colSpan={5} className="border border-slate-300 py-3 text-center text-slate-400 italic">
+                                        ต่อหน้าถัดไป / Continued on next page
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {isLastPage && (
+                    <>
+                        <div className="grid grid-cols-[1.15fr_0.85fr] gap-5 mt-6">
+                            <div className="border border-slate-300 rounded-2xl p-5 min-h-[120px] bg-slate-50/50">
+                                <h3 className="text-[15px] font-bold text-slate-800 mb-3">หมายเหตุเพิ่มเติม</h3>
+                                <div className="text-[12px] text-slate-600 leading-relaxed space-y-1">
+                                    {(remarks || '').split('\n').map((line, i) => (
+                                        <p key={i}>{line}</p>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="border border-slate-300 rounded-2xl overflow-hidden self-start">
+                                <div className="px-5 py-3 space-y-2 text-[13px]">
+                                    <div className="flex justify-between gap-4">
+                                        <span className="font-bold text-slate-700">ยอดรวม</span>
+                                        <span className="font-mono font-bold">{formatPlainMoney(effectiveSubtotal)}</span>
+                                    </div>
+                                    {effectiveDiscount > 0 && (
+                                        <div className="flex justify-between gap-4 text-red-600">
+                                            <span className="font-bold">ส่วนลด</span>
+                                            <span className="font-mono font-bold">-{formatPlainMoney(effectiveDiscount)}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between gap-4">
+                                        <span className="font-bold text-slate-700">VAT {taxRate ?? 0}%</span>
+                                        <span className="font-mono font-bold">{formatPlainMoney(effectiveTax)}</span>
+                                    </div>
+                                </div>
+                                <div className="flex justify-between gap-4 bg-slate-800 text-white px-5 py-4 text-[16px] font-bold">
+                                    <span>รวมทั้งสิ้น</span>
+                                    <span className="font-mono">{formatPlainMoney(total)}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-10 mt-14 text-center text-[12px] text-slate-600">
+                            <div>
+                                <div className="h-10 mb-2 flex items-end justify-center font-semibold text-slate-700">
+                                    {proposerName}
+                                </div>
+                                <div className="border-t border-slate-400 pt-3 mx-6">
+                                    <p className="font-bold text-slate-800">ผู้เสนอราคา</p>
+                                    <p className="text-[10px] text-slate-400 mt-1">ลงชื่อ / วันที่</p>
+                                </div>
+                            </div>
+                            <div>
+                                <div className="h-10 mb-2"></div>
+                                <div className="border-t border-slate-400 pt-3 mx-6">
+                                    <p className="font-bold text-slate-800">ผู้อนุมัติ / ผู้สั่งซื้อ</p>
+                                    <p className="text-[10px] text-slate-400 mt-1">ลงชื่อ / วันที่</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p className="mt-auto text-center text-[11px] text-slate-400 pt-8">
+                            ขอบคุณที่ไว้วางใจใช้บริการ
+                        </p>
+                    </>
+                )}
+
+                <div className="absolute right-[12mm] bottom-[8mm] text-[11px] text-slate-400">
+                    หน้า {pageNumber}/{totalPages}
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div

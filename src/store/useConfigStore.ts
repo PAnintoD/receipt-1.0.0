@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { AppConfig } from '../types';
+import type { AppConfig, CustomerInfo } from '../types';
 import { saveConfigToFirestore, subscribeToConfig } from '../services/firestore';
 
 interface ConfigState extends AppConfig {
@@ -10,6 +10,10 @@ interface ConfigState extends AppConfig {
     setFooterText: (text: string) => Promise<void>;
     setLogo: (logo: string) => Promise<void>;
     setDefaultWatermark: (text: string) => Promise<void>;
+    setDefaultRemarks: (text: string) => Promise<void>;
+    addCustomer: (customer: Omit<CustomerInfo, 'id'>) => Promise<void>;
+    updateCustomer: (id: string, updates: Omit<CustomerInfo, 'id'>) => Promise<void>;
+    deleteCustomer: (id: string) => Promise<void>;
     initializeFirestore: () => (() => void);
 }
 
@@ -22,6 +26,8 @@ function getConfigData(state: ConfigState): AppConfig {
         logo: state.logo,
         footerText: state.footerText,
         defaultWatermark: state.defaultWatermark,
+        defaultRemarks: state.defaultRemarks,
+        customers: state.customers || [],
     };
 }
 
@@ -34,6 +40,8 @@ export const useConfigStore = create<ConfigState>()(
             footerText: 'ขอบคุณที่ใช้บริการ',
             logo: '',
             defaultWatermark: '',
+            defaultRemarks: '- โปรดตรวจสอบรายละเอียดสินค้า จำนวน และเงื่อนไขก่อนยืนยันการสั่งซื้อ\n- ชำระผ่านบัญชีธนาคารตามที่ผู้เสนอราคาแจ้ง\n- ใบเสนอราคานี้มีอายุ 30 วันนับจากวันที่ออกเอกสาร',
+            customers: [],
 
             setShopName: async (name) => {
                 set({ shopName: name });
@@ -60,10 +68,56 @@ export const useConfigStore = create<ConfigState>()(
                 await saveConfigToFirestore(getConfigData(get()));
             },
 
+            setDefaultRemarks: async (text) => {
+                set({ defaultRemarks: text });
+                await saveConfigToFirestore(getConfigData(get()));
+            },
+
             setLogo: async (logo) => {
                 // Logo is stored locally only (via Zustand persist / localStorage).
                 // NOT saved to Firestore because base64 strings are too large.
                 set({ logo });
+            },
+
+            addCustomer: async (customer) => {
+                const trimmedName = customer.name.trim();
+                const trimmedAddress = customer.address.trim();
+                if (!trimmedName) return;
+
+                const customers = get().customers || [];
+                set({
+                    customers: [
+                        ...customers,
+                        {
+                            id: crypto.randomUUID(),
+                            name: trimmedName,
+                            address: trimmedAddress,
+                        },
+                    ],
+                });
+                await saveConfigToFirestore(getConfigData(get()));
+            },
+
+            updateCustomer: async (id, updates) => {
+                const trimmedName = updates.name.trim();
+                const trimmedAddress = updates.address.trim();
+                if (!trimmedName) return;
+
+                set((state) => ({
+                    customers: (state.customers || []).map((customer) =>
+                        customer.id === id
+                            ? { ...customer, name: trimmedName, address: trimmedAddress }
+                            : customer
+                    ),
+                }));
+                await saveConfigToFirestore(getConfigData(get()));
+            },
+
+            deleteCustomer: async (id) => {
+                set((state) => ({
+                    customers: (state.customers || []).filter((customer) => customer.id !== id),
+                }));
+                await saveConfigToFirestore(getConfigData(get()));
             },
 
             initializeFirestore: () => {
@@ -72,7 +126,7 @@ export const useConfigStore = create<ConfigState>()(
                     if (config) {
                         // Don't overwrite local logo with Firestore data (which has no logo)
                         const currentLogo = get().logo;
-                        set({ ...config, logo: currentLogo || config.logo || '' });
+                        set({ ...config, logo: currentLogo || config.logo || '', customers: config.customers || [] });
                     }
                 });
 

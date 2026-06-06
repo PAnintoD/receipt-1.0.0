@@ -1,3 +1,11 @@
+export type DocumentType = 'receipt' | 'tax_invoice' | 'delivery_note' | 'quotation';
+
+export interface CustomerInfo {
+    id: string;
+    name: string;
+    address: string;
+}
+
 export interface AppConfig {
     shopName: string;
     shopAddress: string;
@@ -5,6 +13,8 @@ export interface AppConfig {
     logo: string;
     footerText: string;
     defaultWatermark?: string;
+    defaultRemarks?: string;
+    customers?: CustomerInfo[];
 }
 
 export interface ReceiptItem {
@@ -26,7 +36,9 @@ export interface Receipt {
     taxRate?: number; // Percentage (e.g. 7)
     customerName?: string;
     customerAddress?: string;
-    documentType?: 'receipt' | 'tax_invoice' | 'delivery_note';
+    documentType?: DocumentType;
     isOriginal?: boolean;
     watermarkText?: string;
+    proposerName?: string;
+    remarks?: string;
 }

@@ -3,18 +3,21 @@ import { useReceiptStore } from '../store/useReceiptStore';
 import { formatCurrency } from '../utils/format';
 import { TrendingUp, ShoppingBag, Calendar, ArrowRight, DollarSign } from 'lucide-react';
 import { Link } from 'react-router-dom';
-// @ts-ignore
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const Dashboard = () => {
     const { history } = useReceiptStore();
 
-    const totalRevenue = history.reduce((sum, r) => sum + r.total, 0);
-    const totalReceipts = history.length;
+    const salesHistory = React.useMemo(
+        () => history.filter((receipt) => receipt.documentType !== 'quotation'),
+        [history]
+    );
+    const totalRevenue = salesHistory.reduce((sum, r) => sum + r.total, 0);
+    const totalDocuments = history.length;
 
     // Calculate today's sales
     const today = new Date().toDateString();
-    const todaySales = history
+    const todaySales = salesHistory
         .filter(r => new Date(r.date).toDateString() === today)
         .reduce((sum, r) => sum + r.total, 0);
 
@@ -25,7 +28,7 @@ const Dashboard = () => {
             const d = new Date();
             d.setDate(d.getDate() - i);
             const dateStr = d.toDateString();
-            const revenue = history
+            const revenue = salesHistory
                 .filter(r => new Date(r.date).toDateString() === dateStr)
                 .reduce((sum, r) => sum + r.total, 0);
 
@@ -36,7 +39,7 @@ const Dashboard = () => {
             });
         }
         return days;
-    }, [history]);
+    }, [salesHistory]);
 
     return (
         <div className="space-y-8 animate-fade-in-up">
@@ -46,7 +49,7 @@ const Dashboard = () => {
                     <p className="text-gray-500 mt-1">ยินดีต้อนรับกลับ! นี่คือสรุปยอดขายของคุณวันนี้</p>
                 </div>
                 <Link to="/new" className="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 hover:shadow-blue-300 transform hover:-translate-y-0.5 text-sm font-medium flex items-center gap-2">
-                    สร้างใบเสร็จใหม่ <ArrowRight size={18} />
+                    สร้างเอกสารใหม่ <ArrowRight size={18} />
                 </Link>
             </div>
 
@@ -86,8 +89,8 @@ const Dashboard = () => {
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 transition-all hover:shadow-md hover:border-purple-100 group">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h3 className="text-gray-500 text-sm font-medium">บิลทั้งหมด</h3>
-                            <p className="text-3xl font-bold text-gray-900 mt-2 font-mono tracking-tight group-hover:text-purple-600 transition-colors">{totalReceipts}</p>
+                            <h3 className="text-gray-500 text-sm font-medium">เอกสารทั้งหมด</h3>
+                            <p className="text-3xl font-bold text-gray-900 mt-2 font-mono tracking-tight group-hover:text-purple-600 transition-colors">{totalDocuments}</p>
                         </div>
                         <div className="h-12 w-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
                             <ShoppingBag size={24} />
@@ -132,7 +135,7 @@ const Dashboard = () => {
                                 />
                                 <Tooltip
                                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                    formatter={(value: any) => [formatCurrency(Number(value)), 'รายได้']}
+                                    formatter={(value: unknown) => [formatCurrency(Number(value)), 'รายได้']}
                                     labelFormatter={(label) => `วัน${label}`}
                                 />
                                 <Area
@@ -165,7 +168,7 @@ const Dashboard = () => {
                                             <ShoppingBag size={18} />
                                         </div>
                                         <div>
-                                            <p className="text-sm font-bold text-gray-800 group-hover:text-blue-600 transition-colors">บิล {receipt.id}</p>
+                                            <p className="text-sm font-bold text-gray-800 group-hover:text-blue-600 transition-colors">เอกสาร {receipt.id}</p>
                                             <p className="text-xs text-gray-500">{new Date(receipt.date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</p>
                                         </div>
                                     </div>
@@ -178,7 +181,7 @@ const Dashboard = () => {
                             <div className="h-16 w-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
                                 <ShoppingBag size={24} className="opacity-50" />
                             </div>
-                            <p className="text-sm">ยังไม่มีรายการขาย</p>
+                            <p className="text-sm">ยังไม่มีเอกสาร</p>
                         </div>
                     )}
                 </div>
