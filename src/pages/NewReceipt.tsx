@@ -3,8 +3,8 @@ import { useReceiptStore } from '../store/useReceiptStore';
 import { useConfigStore } from '../store/useConfigStore';
 import { InvoicePreviewA4 } from '../components/receipt/InvoicePreviewA4';
 import { PrintPortal } from '../components/PrintPortal';
-import { User, MapPin, Printer, Save, Trash2, Plus, RefreshCw, ShoppingCart, Tag, Box, ChevronDown, Users } from 'lucide-react';
-import { formatCurrency } from '../utils/format';
+import { User, MapPin, Printer, Save, Trash2, Plus, RefreshCw, ShoppingCart, Tag, Box, ChevronDown, Users, CalendarClock } from 'lucide-react';
+import { formatCurrency, fromThaiDateTimeLocalValue, toThaiDateTimeLocalValue, formatDate } from '../utils/format';
 import { calcTotals } from '../utils/calculations';
 import { clsx } from 'clsx';
 import { DebouncedInput, DebouncedTextarea } from '../components/ui/DebouncedInput';
@@ -22,7 +22,7 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
 }
 
 const NewReceipt = () => {
-    const { currentItems, addItem, removeItem, clearCurrentReceipt, saveReceipt, discount, setDiscount, taxRate, setTaxRate, customerName, customerAddress, setCustomerName, setCustomerAddress, documentType, setDocumentType, isOriginal, setIsOriginal, watermarkText, setWatermarkText, proposerName, setProposerName, remarks, setRemarks, getNextId, editingId, savedCurrentReceiptId, isSaving } = useReceiptStore();
+    const { currentItems, addItem, removeItem, clearCurrentReceipt, saveReceipt, discount, setDiscount, taxRate, setTaxRate, customerName, customerAddress, setCustomerName, setCustomerAddress, date, setDate, documentType, setDocumentType, isOriginal, setIsOriginal, watermarkText, setWatermarkText, proposerName, setProposerName, remarks, setRemarks, getNextId, editingId, isSaving } = useReceiptStore();
     const config = useConfigStore();
     const customers = config.customers || [];
     const [newItem, setNewItem] = React.useState({ name: '', price: '', qty: 1, unit: 'ชิ้น' });
@@ -30,6 +30,15 @@ const NewReceipt = () => {
     // Local state to force re-render when store updates (if needed) but mostly handled by store subscription. 
     // Actually, for DebouncedInput to show store values (e.g. initial load), we pass defaults?
     // DebouncedInput handles internal state syncing via useEffect on 'value' prop.
+
+    React.useEffect(() => {
+        // Automatically set to current time when opening the page for a new document
+        if (!editingId) {
+            setDate(new Date().toISOString());
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
 
     const handleAddItem = (e: React.FormEvent) => {
         e.preventDefault();
@@ -71,7 +80,7 @@ const NewReceipt = () => {
         [safeCurrentItems, discount, taxRate]
     );
 
-    const nextId = editingId || savedCurrentReceiptId || getNextId();
+    const nextId = editingId || getNextId();
 
     // Pagination: split items into pages of 10
     const pages = React.useMemo(() => chunkArray(safeCurrentItems, ITEMS_PER_PAGE), [safeCurrentItems]);
@@ -155,6 +164,18 @@ const NewReceipt = () => {
                                 </div>
                             </div>
                         )}
+                        <div className="mt-4">
+                            <label className="block text-xs font-bold text-gray-500 mb-1 ml-1">วันที่และเวลาเอกสาร</label>
+                            <div className="relative max-w-sm">
+                                <CalendarClock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                <input
+                                    type="datetime-local"
+                                    value={toThaiDateTimeLocalValue(date)}
+                                    onChange={(e) => setDate(fromThaiDateTimeLocalValue(e.target.value))}
+                                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all shadow-sm text-sm text-gray-700"
+                                />
+                            </div>
+                        </div>
                     </div>
 
                     {/* Customer Info */}
@@ -365,8 +386,6 @@ const NewReceipt = () => {
                                 const result = await saveReceipt();
                                 if (result.status === 'saved') {
                                     alert(`บันทึกสำเร็จ! เลขที่เอกสาร: ${result.id}`);
-                                } else if (result.status === 'duplicate') {
-                                    alert(`เอกสารนี้มีอยู่แล้ว: ${result.id}`);
                                 } else {
                                     alert('เกิดข้อผิดพลาดในการบันทึก กรุณาลองใหม่');
                                 }
@@ -419,6 +438,7 @@ const NewReceipt = () => {
                                             watermarkText={watermarkText}
                                             proposerName={proposerName}
                                             remarks={remarks || (documentType === 'quotation' ? config.defaultRemarks : undefined)}
+                                            date={date}
                                             id={nextId}
                                             pageNumber={pageIdx + 1}
                                             totalPages={totalPages}
@@ -454,6 +474,7 @@ const NewReceipt = () => {
                             watermarkText={watermarkText}
                             proposerName={proposerName}
                             remarks={remarks || (documentType === 'quotation' ? config.defaultRemarks : undefined)}
+                            date={date}
                             id={nextId}
                             pageNumber={pageIdx + 1}
                             totalPages={totalPages}

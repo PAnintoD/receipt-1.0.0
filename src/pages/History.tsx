@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useReceiptStore } from '../store/useReceiptStore';
-import { formatDate, formatCurrency } from '../utils/format';
+import { formatDate, formatCurrency, formatTime } from '../utils/format';
 import { Printer, Trash2, Eye, Search, FileText, X, Filter, Pencil } from 'lucide-react';
 import { InvoicePreviewA4 } from '../components/receipt/InvoicePreviewA4';
 import { PrintPortal } from '../components/PrintPortal';
@@ -260,7 +260,7 @@ const History = () => {
                                     <td className="px-6 py-4 text-gray-600 whitespace-nowrap">
                                         <div className="flex flex-col">
                                             <span className="font-medium text-gray-900">{formatDate(receipt.date).split(' ')[0]}</span>
-                                            <span className="text-xs text-gray-400">{new Date(receipt.date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</span>
+                                            <span className="text-xs text-gray-400">{formatTime(receipt.date)}</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 font-mono text-xs text-gray-500">

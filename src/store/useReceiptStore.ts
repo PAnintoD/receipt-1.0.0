@@ -7,10 +7,11 @@ import {
     subscribeToReceipts
 } from '../services/firestore';
 import { calcTotals } from '../utils/calculations';
+import { getThaiDateKey } from '../utils/format';
 
 type SaveReceiptResult = {
     id: string;
-    status: 'saved' | 'duplicate' | 'error';
+    status: 'saved' | 'error';
 };
 
 interface ReceiptState {
@@ -19,6 +20,7 @@ interface ReceiptState {
     taxRate: number;
     customerName: string;
     customerAddress: string;
+    date: string;
     documentType: DocumentType;
     isOriginal: boolean;
     watermarkText: string;
@@ -28,6 +30,7 @@ interface ReceiptState {
     setTaxRate: (rate: number) => void;
     setCustomerName: (name: string) => void;
     setCustomerAddress: (address: string) => void;
+    setDate: (date: string) => void;
     setDocumentType: (type: DocumentType) => void;
     setIsOriginal: (isOriginal: boolean) => void;
     setWatermarkText: (text: string) => void;
@@ -39,7 +42,6 @@ interface ReceiptState {
     clearCurrentReceipt: () => void;
 
     editingId: string | null;
-    savedCurrentReceiptId: string | null;
     isSaving: boolean;
     loadReceipt: (receipt: Receipt) => void;
 
@@ -61,6 +63,7 @@ export const useReceiptStore = create<ReceiptState>()(
             taxRate: 7, // Default 7% VAT
             customerName: '',
             customerAddress: '',
+            date: new Date().toISOString(),
             documentType: 'receipt',
             isOriginal: true,
             watermarkText: '',
@@ -71,6 +74,7 @@ export const useReceiptStore = create<ReceiptState>()(
             setTaxRate: (rate) => set({ taxRate: rate }),
             setCustomerName: (name) => set({ customerName: name }),
             setCustomerAddress: (address) => set({ customerAddress: address }),
+            setDate: (date) => set({ date }),
             setDocumentType: (type) => set({ documentType: type }),
             setIsOriginal: (isOriginal) => set({ isOriginal }),
             setWatermarkText: (text) => set({ watermarkText: text }),
@@ -78,7 +82,6 @@ export const useReceiptStore = create<ReceiptState>()(
             setRemarks: (remarks) => set({ remarks }),
 
             editingId: null,
-            savedCurrentReceiptId: null,
             isSaving: false,
 
             loadReceipt: (receipt) => {
@@ -88,13 +91,13 @@ export const useReceiptStore = create<ReceiptState>()(
                     taxRate: receipt.taxRate || 0,
                     customerName: receipt.customerName || '',
                     customerAddress: receipt.customerAddress || '',
+                    date: receipt.date || new Date().toISOString(),
                     documentType: receipt.documentType || 'receipt',
                     isOriginal: receipt.isOriginal ?? true,
                     watermarkText: receipt.watermarkText || '',
                     proposerName: receipt.proposerName || '',
                     remarks: receipt.remarks || '',
                     editingId: receipt.id,
-                    savedCurrentReceiptId: null,
                 });
             },
 
@@ -128,8 +131,8 @@ export const useReceiptStore = create<ReceiptState>()(
                     discount: 0,
                     customerName: '',
                     customerAddress: '',
+                    date: new Date().toISOString(),
                     editingId: null,
-                    savedCurrentReceiptId: null,
                     watermarkText: '',
                     proposerName: '',
                     remarks: '',
@@ -141,7 +144,7 @@ export const useReceiptStore = create<ReceiptState>()(
             setHistory: (history) => set({ history }),
 
             getNextId: () => {
-                const { history, documentType } = get();
+                const { history, documentType, date } = get();
 
                 let prefixCode = 'INV';
                 switch (documentType) {
@@ -163,10 +166,8 @@ export const useReceiptStore = create<ReceiptState>()(
 
                 if (!Array.isArray(history)) return `${prefixCode}-20260214-0001`;
 
-                const today = new Date();
-                const year = today.getFullYear();
-                const month = String(today.getMonth() + 1).padStart(2, '0');
-                const day = String(today.getDate()).padStart(2, '0');
+                const dateKey = getThaiDateKey(date) || getThaiDateKey(new Date());
+                const [year, month, day] = dateKey.split('-');
                 const prefix = `${prefixCode}-${year}${month}${day}-`;
 
                 const todayReceipts = history.filter(r => r && r.id && r.id.startsWith(prefix));
@@ -193,6 +194,7 @@ export const useReceiptStore = create<ReceiptState>()(
                         taxRate,
                         customerName,
                         customerAddress,
+                        date,
                         documentType,
                         isOriginal,
                         watermarkText,
@@ -200,7 +202,6 @@ export const useReceiptStore = create<ReceiptState>()(
                         remarks,
                         history,
                         editingId,
-                        savedCurrentReceiptId,
                     } = get();
 
                     try {
@@ -213,24 +214,16 @@ export const useReceiptStore = create<ReceiptState>()(
                             return { id: '', status: 'error' };
                         }
 
-                        if (!editingId && savedCurrentReceiptId) {
-                            const alreadyExists = safeHistory.some(h => h.id === savedCurrentReceiptId);
-                            if (alreadyExists) {
-                                return { id: savedCurrentReceiptId, status: 'duplicate' };
-                            }
-
-                            set({ savedCurrentReceiptId: null });
-                        }
-
                         const { subtotal, discountAmount, taxAmount, total } = calcTotals(
                             safeCurrentItems,
                             discount,
                             taxRate
                         );
+                        const selectedDate = new Date(date);
 
                         const newReceipt: Receipt = {
                             id: editingId || get().getNextId(),
-                            date: new Date().toISOString(),
+                            date: isNaN(selectedDate.getTime()) ? new Date().toISOString() : selectedDate.toISOString(),
                             items: safeCurrentItems,
                             subtotal,
                             discount: discountAmount,
@@ -253,7 +246,6 @@ export const useReceiptStore = create<ReceiptState>()(
                                 ? safeHistory.map(h => h.id === newReceipt.id ? newReceipt : h)
                                 : [newReceipt, ...safeHistory],
                             editingId: null,
-                            savedCurrentReceiptId: editingId ? null : newReceipt.id,
                         });
 
                         return { id: newReceipt.id, status: 'saved' };
@@ -278,7 +270,6 @@ export const useReceiptStore = create<ReceiptState>()(
                     set((state) => ({
                         history: state.history.filter((r) => r.id !== id),
                         editingId: state.editingId === id ? null : state.editingId,
-                        savedCurrentReceiptId: state.savedCurrentReceiptId === id ? null : state.savedCurrentReceiptId,
                     }));
                 } catch (error) {
                     console.error('Failed to delete receipt:', error);

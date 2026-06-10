@@ -78,8 +78,7 @@ export const InvoicePreviewA4 = React.memo(React.forwardRef<HTMLDivElement, Invo
     const emptyRowCount = Math.max(0, ITEMS_PER_PAGE - items.length);
 
     if (documentType === 'quotation') {
-        const validUntil = new Date(displayDate);
-        validUntil.setDate(validUntil.getDate() + 30);
+        const validUntil = new Date(new Date(displayDate).getTime() + 30 * 24 * 60 * 60 * 1000);
 
         return (
             <div

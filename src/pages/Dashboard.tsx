@@ -1,6 +1,6 @@
 import React from 'react';
 import { useReceiptStore } from '../store/useReceiptStore';
-import { formatCurrency } from '../utils/format';
+import { formatCurrency, formatThaiShortDate, formatThaiShortWeekday, formatTime, getThaiDateKey } from '../utils/format';
 import { TrendingUp, ShoppingBag, Calendar, ArrowRight, DollarSign } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -16,26 +16,25 @@ const Dashboard = () => {
     const totalDocuments = history.length;
 
     // Calculate today's sales
-    const today = new Date().toDateString();
+    const today = getThaiDateKey(new Date());
     const todaySales = salesHistory
-        .filter(r => new Date(r.date).toDateString() === today)
+        .filter(r => getThaiDateKey(r.date) === today)
         .reduce((sum, r) => sum + r.total, 0);
 
     // Prepare chart data (Last 7 days)
     const chartData = React.useMemo(() => {
         const days = [];
         for (let i = 6; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
-            const dateStr = d.toDateString();
+            const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+            const dateStr = getThaiDateKey(d);
             const revenue = salesHistory
-                .filter(r => new Date(r.date).toDateString() === dateStr)
+                .filter(r => getThaiDateKey(r.date) === dateStr)
                 .reduce((sum, r) => sum + r.total, 0);
 
             days.push({
-                name: d.toLocaleDateString('th-TH', { weekday: 'short' }), // Mon, Tue...
+                name: formatThaiShortWeekday(d),
                 revenue,
-                fullDate: d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+                fullDate: formatThaiShortDate(d)
             });
         }
         return days;
@@ -169,7 +168,7 @@ const Dashboard = () => {
                                         </div>
                                         <div>
                                             <p className="text-sm font-bold text-gray-800 group-hover:text-blue-600 transition-colors">เอกสาร {receipt.id}</p>
-                                            <p className="text-xs text-gray-500">{new Date(receipt.date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</p>
+                                            <p className="text-xs text-gray-500">{formatTime(receipt.date)}</p>
                                         </div>
                                     </div>
                                     <span className="font-bold text-gray-900 font-mono text-sm group-hover:scale-105 transition-transform">{formatCurrency(receipt.total)}</span>
