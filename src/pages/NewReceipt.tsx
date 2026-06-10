@@ -4,7 +4,7 @@ import { useConfigStore } from '../store/useConfigStore';
 import { InvoicePreviewA4 } from '../components/receipt/InvoicePreviewA4';
 import { PrintPortal } from '../components/PrintPortal';
 import { User, MapPin, Printer, Save, Trash2, Plus, RefreshCw, ShoppingCart, Tag, Box, ChevronDown, Users, CalendarClock } from 'lucide-react';
-import { formatCurrency, fromThaiDateTimeLocalValue, toThaiDateTimeLocalValue, formatDate } from '../utils/format';
+import { formatCurrency, fromThaiDateTimeLocalValue, toThaiDateTimeLocalValue } from '../utils/format';
 import { calcTotals } from '../utils/calculations';
 import { clsx } from 'clsx';
 import { DebouncedInput, DebouncedTextarea } from '../components/ui/DebouncedInput';
